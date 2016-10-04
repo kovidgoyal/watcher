@@ -4,13 +4,9 @@
 
 import os
 
-from .constants import ansi_code, bg, fg, hostname
+from .constants import ansi_code, bg, fg, hostname, LEFT_DIVIDER, LEFT_END, RIGHT_END, VCS_SYMBOL
 from .vcs import vcs_data
 
-LEFT_DIVIDER = ''
-LEFT_END = ''
-RIGHT_END = ''
-VCS_SYMBOL = ''
 CWD_BACKGROUND = 'gray4'
 CWD_FOREGROUND = 'white'
 CWD_LAST_BG = 'white'

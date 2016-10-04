@@ -5,6 +5,10 @@
 import os
 
 appname = 'watcher'
+LEFT_DIVIDER = ''
+LEFT_END = ''
+RIGHT_END = ''
+VCS_SYMBOL = ''
 
 
 def local_socket_address():
