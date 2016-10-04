@@ -12,7 +12,9 @@ LEFT_END = ''
 RIGHT_END = ''
 VCS_SYMBOL = ''
 CWD_BACKGROUND = 'gray4'
-CWD_FOREGROUND = 'brightwhite'
+CWD_FOREGROUND = 'white'
+CWD_LAST_BG = 'white'
+CWD_LAST_FG = 'black'
 VCS_BACKGROUND = 'gray2'
 VCS_FOREGROUND = USER_FOREGROUND = 'white'
 VCS_DIRTY_FOREGROUND = 'yellow'
@@ -83,13 +85,21 @@ def user_segment(user, parts):
 def cwd_segment(cwd_parts, parts):
     a = parts.append
     a(ansi_code(fg(CWD_FOREGROUND), bg(CWD_BACKGROUND)))
+    last = cwd_parts[-1]
+    second_last = cwd_parts[-2] if len(cwd_parts) > 1 else None
     for p in cwd_parts:
+        if p is last:
+            a(ansi_code(fg(CWD_LAST_FG), bg(CWD_LAST_BG)))
         a('\xa0{}\xa0'.format(p))
-        if p is cwd_parts[-1]:
-            a(ansi_code('reset', fg(CWD_BACKGROUND)))
+        if p is last:
+            a(ansi_code('reset', fg(CWD_LAST_BG)))
             a(LEFT_END)
         else:
-            a(LEFT_DIVIDER)
+            if p is second_last:
+                a(ansi_code(fg(CWD_BACKGROUND), bg(CWD_LAST_BG)))
+                a(LEFT_END)
+            else:
+                a(LEFT_DIVIDER)
 
 
 def left_prompt(user, cwd, is_ssh, home):
@@ -97,7 +107,9 @@ def left_prompt(user, cwd, is_ssh, home):
     home = home.rstrip(os.sep) + os.sep
     if cwd.startswith(home):
         cwd = '~' + os.sep + cwd[len(home):]
-    cwd_parts = cwd.split(os.sep)
+    cwd_parts = list(filter(None, cwd.split(os.sep)))
+    if cwd_parts[0] != '~':
+        cwd_parts.insert(0, '/')
     show_user = user.strip() and user != IGNORE_USER
     limit = 3 if is_ssh else 4
     limit -= 1 if show_user else 0
