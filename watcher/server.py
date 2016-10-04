@@ -5,6 +5,7 @@
 import sys
 import socket
 import select
+import errno
 
 from .constants import local_socket_address
 from .utils import deserialize_message, serialize_message
@@ -89,7 +90,12 @@ def run_loop(serversocket):
 
 def run_server(args):
     serversocket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    serversocket.bind(local_socket_address())
+    try:
+        serversocket.bind(local_socket_address())
+    except EnvironmentError as err:
+        if err.errno == errno.EADDRINUSE:
+            raise SystemExit('The daemon is already running')
+        raise
     serversocket.setblocking(0)
     serversocket.listen(5)
     run_loop(serversocket)
