@@ -32,7 +32,10 @@ def handle_msg(msg):
     q = msg.get('q')
     try:
         if q == 'prompt':
-            return String(prompt_data(**msg))
+            try:
+                return String(prompt_data(**msg))
+            except Exception as err:
+                return String(err)
         if q == 'vcs':
             ans = vcs_data(msg['path'], subpath=msg.get('subpath'))
             ans['ok'] = True
@@ -41,6 +44,7 @@ def handle_msg(msg):
             w = add_tree_watch(msg['path'])
             return {'ok': True, 'modified': w.was_modified_since_last_call()}
     except Exception as err:
+        print_error(traceback.format_exc())
         return {'ok': False, 'msg': str(err), 'tb': traceback.format_exc()}
 
     return {'ok': False, 'msg': 'Query: {} not understood'.format(q), 'tb': ''}

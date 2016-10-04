@@ -16,23 +16,77 @@ def local_socket_address():
     return local_socket_address.ADDRESS
 
 
-def ansi_code(*names):
-    fg = '38;5;'
-    bg = '48;5;'
-    if not hasattr(ansi_code, 'codes'):
-        ansi_code.codes = {
-            'reset': '0',
-            'gray-f': fg + '236',
-            'gray-b': bg + '236',
-            'yellow-f': fg + '220',
+def ansi_codes():
+    if not hasattr(ansi_codes, 'codes'):
+        ansi_codes.codes = {
+            "black": 16,
+            "white": 231,
+
+            'gray': 236,
+            'yellow': 220,
+
+            "darkestgreen": 22,
+            "darkgreen": 28,
+            "mediumgreen": 70,
+            "brightgreen": 148,
+
+            "darkestcyan": 23,
+            "darkcyan": 74,
+            "mediumcyan": 117,
+            "brightcyan": 159,
+
+            "darkestblue": 24,
+            "darkblue": 31,
+
+            "darkestred": 52,
+            "darkred": 88,
+            "mediumred": 124,
+            "brightred": 160,
+            "brightestred": 196,
+
+            "darkestpurple": 55,
+            "mediumpurple": 98,
+            "brightpurple": 189,
+
+            "darkorange": 94,
+            "mediumorange": 166,
+            "brightorange": 208,
+            "brightestorange": 214,
+
+            "gray0": 233,
+            "gray1": 235,
+            "gray2": 236,
+            "gray3": 239,
+            "gray4": 240,
+            "gray5": 241,
+            "gray6": 244,
+            "gray7": 245,
+            "gray8": 247,
+            "gray9": 250,
+            "gray10": 252,
+
+            "lightyellowgreen": 106,
+            "gold3": 178,
+            "orangered": 202,
+
+            "steelblue": 67,
+            "darkorange3": 166,
+            "skyblue1": 117,
+            "khaki1": 228
         }
-    ans = '%{\x1b['
-    if len(names) == 1:
-        ans += ansi_code.codes[names[0]] + 'm'
-    else:
-        for name in names:
-            ans += ansi_code.codes[name]
-            if name is not names[-1]:
-                ans += ';'
-        ans += 'm'
-    return ans + '%}'
+    return ansi_codes.codes
+
+
+def fg(name):
+    return '38;5;{};'.format(ansi_codes()[name])
+
+
+def bg(name):
+    return '48;5;{};'.format(ansi_codes()[name])
+
+
+def ansi_code(*args):
+    args = ('0' if x == 'reset' else x for x in args)
+    ans = '%{\x1b[' + ''.join(args)
+    ans = ans.rstrip(';') + 'm%}'
+    return ans
