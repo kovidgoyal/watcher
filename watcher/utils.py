@@ -80,9 +80,12 @@ def serialize_message(msg):
     return ans
 
 
-def readlines(cmd, cwd):
+def readlines(cmd, cwd=os.getcwd(), decode=True):
     p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
     p.stderr.close()
     with p.stdout:
         for line in p.stdout:
-            yield line[:-1].decode('utf-8')
+            if decode:
+                yield line[:-1].decode('utf-8')
+            else:
+                yield line[:-1]

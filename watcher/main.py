@@ -25,6 +25,10 @@ def parser():
     parser = argparse.ArgumentParser(prog=appname, description='Run the watcher')
     subparsers = parser.add_subparsers(help='Choose whether to run in server or client mode')
     s = subparsers.add_parser('server')
+    s.add_argument('--action', default='run', choices='run kill restart',
+                   help='The action to perform')
+    s.add_argument('--daemonize', default=False, action='store_true',
+                   help='Run the server as a background daemon')
     s.set_defaults(func=server)
 
     c = subparsers.add_parser('client')

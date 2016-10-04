@@ -3,14 +3,18 @@
 # License: GPL v3 Copyright: 2016, Kovid Goyal <kovid at kovidgoyal.net>
 
 import sys
+import os
+import re
 import socket
+import signal
+import time
 import select
 import errno
 import traceback
 from time import monotonic
 
 from .constants import local_socket_address
-from .utils import deserialize_message, serialize_message, String
+from .utils import deserialize_message, serialize_message, String, readlines
 from .inotify import tree_watchers, prune_watchers, add_tree_watch
 from .vcs import vcs_data
 from .prompt import prompt_data
@@ -116,7 +120,75 @@ def run_loop(serversocket):
             raise SystemExit(0)
 
 
+def daemonize(stdin=os.devnull, stdout=os.devnull, stderr=os.devnull):
+    try:
+        pid = os.fork()
+        if pid > 0:
+            # exit first parent
+            sys.exit(0)
+    except OSError as e:
+        raise SystemExit("fork #1 failed: %d (%s)" % (e.errno, e.strerror))
+
+    # decouple from parent environment
+    os.chdir("/")
+    os.setsid()
+    os.umask(0)
+
+    # do second fork
+    try:
+        pid = os.fork()
+        if pid > 0:
+            # exit from second parent
+            sys.exit(0)
+    except OSError as e:
+        raise SystemExit("fork #1 failed: %d (%s)" % (e.errno, e.strerror))
+        sys.exit(1)
+
+    # Redirect standard file descriptors.
+    si = open(stdin, 'rb')
+    so = open(stdout, 'a+b')
+    se = open(stderr, 'a+b', 0)
+    os.dup2(si.fileno(), sys.stdin.fileno())
+    os.dup2(so.fileno(), sys.stdout.fileno())
+    os.dup2(se.fileno(), sys.stderr.fileno())
+
+
+def pid_of_running_server():
+    q = local_socket_address().replace(b'\0', b'@')
+    for line in readlines('ss -xlnp'.split(), decode=False):
+        parts = line.split()
+        if q in parts:
+            m = re.search(br'pid=(\d+)', line)
+            if m is not None:
+                return int(m.group(1))
+
+
+def kill():
+    pid = pid_of_running_server()
+    if pid is None:
+        print('No running server')
+    else:
+        os.kill(pid, signal.SIGINT)
+        for i in range(3):
+            time.sleep(0.1)
+            pid = pid_of_running_server()
+            if pid is None:
+                break
+        if pid is not None:
+            os.kill(pid, signal.SIGTERM)
+            time.sleep(0.2)
+            pid = pid_of_running_server()
+            if pid is not None:
+                os.kill(pid, signal.SIGKILL)
+
+
 def run_server(args):
+    if args.action == 'kill':
+        return kill()
+    elif args.action == 'restart':
+        kill()
+    if args.daemonize:
+        daemonize()
     serversocket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
         serversocket.bind(local_socket_address())
