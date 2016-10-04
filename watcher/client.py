@@ -5,10 +5,10 @@ from __future__ import absolute_import, unicode_literals
 
 import socket
 import errno
-import os
+import functools
 
 from .constants import local_socket_address
-from .utils import serialize_message, deserialize_message
+from .utils import serialize_message, deserialize_message, realpath
 
 is_cli = False
 
@@ -18,7 +18,7 @@ def send_msg(s, msg):
     s.shutdown(socket.SHUT_WR)
 
 
-def recv_msg(s):
+def recv_msg(s, ds=deserialize_message):
     buf = b''
     while True:
         d = s.recv(4096)
@@ -27,10 +27,20 @@ def recv_msg(s):
         else:
             break
     try:
-        return deserialize_message(buf)
+        return ds(buf)
     finally:
         s.shutdown(socket.SHUT_RDWR)
         s.close()
+
+
+def entry(f):
+    @functools.wraps(f)
+    def wrapper(args):
+        s = connect()
+        if s is None:
+            raise (SystemExit if is_cli else EnvironmentError)('No running daemon found at: ' + local_socket_address())
+        return f(s, args)
+    return wrapper
 
 
 def connect():
@@ -44,27 +54,32 @@ def connect():
     return s
 
 
-def vcs(path):
-    s = connect()
-    if s is None:
-        raise (SystemExit if is_cli else EnvironmentError)('No running daemon found at: ' + local_socket_address())
-    send_msg(s, {'q': 'vcs', 'path': os.path.abspath(path)})
+@entry
+def vcs(s, args):
+    send_msg(s, {'q': 'vcs', 'path': realpath(args.path)})
     print(recv_msg(s))
 
 
-def watch(path):
-    s = connect()
-    if s is None:
-        raise (SystemExit if is_cli else EnvironmentError)('No running daemon found at: ' + local_socket_address())
-    send_msg(s, {'q': 'watch', 'path': os.path.abspath(path)})
+@entry
+def watch(s, args):
+    send_msg(s, {'q': 'watch', 'path': realpath(args.path)})
     print(recv_msg(s))
+
+
+@entry
+def prompt(s, args):
+    send_msg(s, {'q': 'prompt', 'which': args.which, 'cwd': realpath(args.cwd), 'last_exit_code': args.last_exit_code,
+                 'last_pipe_code': args.last_pipe_code})
+    print(recv_msg(s, ds=lambda x: x.decode('utf-8')))
 
 
 def main(args):
     global is_cli
     is_cli = True
-    if args.q == 'vcs':
-        return vcs(args.path[0])
+    if args.q == 'prompt':
+        return prompt(args)
+    elif args.q == 'vcs':
+        return vcs(args)
     elif args.q == 'watch':
-        return watch(args.path[0])
+        return watch(args)
     raise SystemExit('Unknown query: {}'.format(args.q))

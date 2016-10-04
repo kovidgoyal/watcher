@@ -10,9 +10,10 @@ import traceback
 from time import monotonic
 
 from .constants import local_socket_address
-from .utils import deserialize_message, serialize_message
+from .utils import deserialize_message, serialize_message, String
 from .inotify import tree_watchers, prune_watchers, add_tree_watch
 from .vcs import vcs_data
+from .prompt import prompt_data
 
 read_needed, write_needed = set(), set()
 clients = {}
@@ -26,8 +27,10 @@ def print_error(*args, **kw):
 def handle_msg(msg):
     q = msg.get('q')
     try:
+        if q == 'prompt':
+            return String(prompt_data(**msg))
         if q == 'vcs':
-            ans = vcs_data(msg['path'], msg.get('subpath'))
+            ans = vcs_data(msg['path'], subpath=msg.get('subpath'))
             ans['ok'] = True
             return ans
         if q == 'watch':

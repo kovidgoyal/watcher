@@ -3,8 +3,10 @@
 # License: GPL v3 Copyright: 2016, Kovid Goyal <kovid at kovidgoyal.net>
 
 import argparse
+import os
 
 from .constants import appname
+from .utils import realpath
 
 
 def server(args):
@@ -30,12 +32,20 @@ def parser():
     subparsers = c.add_subparsers(help='Choose query to make of the server')
 
     v = subparsers.add_parser('vcs', help='Query the VCS status of a directory')
-    v.add_argument('path', nargs=1, help='Path of directory to query')
+    v.add_argument('path', help='Path of directory to query')
     v.set_defaults(q='vcs')
 
     v = subparsers.add_parser('watch', help='Check if a directory tree has changed since the last call')
-    v.add_argument('path', nargs=1, help='Path of directory to query')
+    v.add_argument('path', help='Path of directory to query')
     v.set_defaults(q='watch')
+
+    v = subparsers.add_parser('prompt', help='Get a nice rendered prompt for use with PS1/RPS1')
+    v.add_argument('which', choices=('left', 'right'), help='left or right prompt')
+    v.add_argument('--cwd', default=realpath(os.getcwd()), help='The current working directory for this query')
+    v.add_argument('--last-exit-code', default='0', help='The last exit code to display')
+    v.add_argument('--last-pipe-code', default='0', help='The last pipe exit code to display')
+    v.set_defaults(q='prompt')
+
     return parser
 
 

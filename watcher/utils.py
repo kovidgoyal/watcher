@@ -8,6 +8,10 @@ import stat
 import subprocess
 
 
+class String(str):
+    pass
+
+
 def realpath(x):
     return os.path.abspath(os.path.realpath(x))
 
@@ -57,11 +61,23 @@ def generate_directories(path):
 
 
 def deserialize_message(raw):
-    return json.loads(raw.decode('utf-8'))
+    if raw.startswith(b'\x01'):
+        return json.loads(raw[1:].decode('utf-8'))
+    else:
+        raw = raw[1:].decode('utf-8')
+        ans = {}
+        for line in raw.split('\0'):
+            key, val = line.partition(':')[::2]
+            ans[key] = val
+        return ans
 
 
 def serialize_message(msg):
-    return json.dumps(msg, ensure_ascii=False).encode('utf-8')
+    if isinstance(msg, String):
+        return msg.encode('utf-8')
+    ans = json.dumps(msg, ensure_ascii=False).encode('utf-8')
+    ans = b'\x01' + ans
+    return ans
 
 
 def readlines(cmd, cwd):
