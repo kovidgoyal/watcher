@@ -52,9 +52,19 @@ def vcs(path):
     print(recv_msg(s))
 
 
+def watch(path):
+    s = connect()
+    if s is None:
+        raise (SystemExit if is_cli else EnvironmentError)('No running daemon found at: ' + local_socket_address())
+    send_msg(s, {'q': 'watch', 'path': os.path.abspath(path)})
+    print(recv_msg(s))
+
+
 def main(args):
     global is_cli
     is_cli = True
     if args.q == 'vcs':
         return vcs(args.path[0])
+    elif args.q == 'watch':
+        return watch(args.path[0])
     raise SystemExit('Unknown query: {}'.format(args.q))

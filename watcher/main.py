@@ -28,9 +28,14 @@ def parser():
     c = subparsers.add_parser('client')
     c.set_defaults(func=client)
     subparsers = c.add_subparsers(help='Choose query to make of the server')
+
     v = subparsers.add_parser('vcs', help='Query the VCS status of a directory')
     v.add_argument('path', nargs=1, help='Path of directory to query')
     v.set_defaults(q='vcs')
+
+    v = subparsers.add_parser('watch', help='Check if a directory tree has changed since the last call')
+    v.add_argument('path', nargs=1, help='Path of directory to query')
+    v.set_defaults(q='watch')
     return parser
 
 
