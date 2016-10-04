@@ -20,7 +20,8 @@ def ansi_codes():
     if not hasattr(ansi_codes, 'codes'):
         ansi_codes.codes = {
             "black": 16,
-            "white": 231,
+            "white": 7,
+            "brightwhite": 231,
 
             'gray': 236,
             'yellow': 220,

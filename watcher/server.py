@@ -35,6 +35,7 @@ def handle_msg(msg):
             try:
                 return String(prompt_data(**msg))
             except Exception as err:
+                print_error(traceback.format_exc())
                 return String(err)
         if q == 'vcs':
             ans = vcs_data(msg['path'], subpath=msg.get('subpath'))

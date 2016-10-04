@@ -18,7 +18,7 @@ def realpath(x):
 
 def ismount(path, stat_func=os.lstat):
     st = stat_func(path)
-    if stat.S_ISLNK(st):
+    if stat.S_ISLNK(st.st_mode):
         return False
     try:
         s1 = stat_func(path)
