@@ -9,6 +9,7 @@ import struct
 import ctypes
 from collections import namedtuple
 from time import monotonic
+from .utils import realpath
 
 
 class DirTooLarge(ValueError):
@@ -133,10 +134,6 @@ def read(inotify, inotify_fd, process_event, get_name=True):
 read.buf = b''
 
 
-def realpath(x):
-    return os.path.abspath(os.path.realpath(x))
-
-
 class TreeWatcher:
 
     def __init__(self, basedir, ignore_event=lambda path, name: False):
@@ -147,7 +144,7 @@ class TreeWatcher:
             raise EnvironmentError(os.strerror(ctypes.get_errno()))
         self.basedir = realpath(basedir)
         self.ignore_event = ignore_event
-        self.modified = False
+        self.modified = True
         self.watch_tree()
 
     def fileno(self):

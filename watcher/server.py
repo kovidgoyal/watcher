@@ -12,6 +12,7 @@ from time import monotonic
 from .constants import local_socket_address
 from .utils import deserialize_message, serialize_message
 from .inotify import tree_watchers, prune_watchers, add_tree_watch
+from .vcs import vcs_data
 
 read_needed, write_needed = set(), set()
 clients = {}
@@ -25,6 +26,10 @@ def print_error(*args, **kw):
 def handle_msg(msg):
     q = msg.get('q')
     try:
+        if q == 'vcs':
+            ans = vcs_data(msg['path'], msg.get('subpath'))
+            ans['ok'] = True
+            return ans
         if q == 'watch':
             w = add_tree_watch(msg['path'])
             return {'ok': True, 'modified': w.was_modified_since_last_call()}

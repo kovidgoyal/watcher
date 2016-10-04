@@ -4,25 +4,54 @@
 
 import os
 import json
+import stat
+import subprocess
 
 
-EXCLUDE_VCS_DIRS = frozenset('qt5'.split())
-vcs_props = (
-    ('git', '.git', os.path.exists),
-    # ('mercurial', '.hg', os.path.isdir),
-    # ('bzr', '.bzr', os.path.isdir),
-)
+def realpath(x):
+    return os.path.abspath(os.path.realpath(x))
+
+
+def ismount(path, stat_func=os.lstat):
+    st = stat_func(path)
+    if stat.S_ISLNK(st):
+        return False
+    try:
+        s1 = stat_func(path)
+        s2 = stat_func(os.path.join(path, '..'))
+    except os.error:
+        return False  # It doesn't exist -- so not a mount point :-)
+    dev1 = s1.st_dev
+    dev2 = s2.st_dev
+    if dev1 != dev2:
+        return True     # path/.. on a different device as path
+    ino1 = s1.st_ino
+    ino2 = s2.st_ino
+    if ino1 == ino2:
+        return True     # path/.. is the same i-node as path
+    return False
 
 
 def generate_directories(path):
-    if os.path.isdir(path):
+    cache = {}
+
+    def stat_func(p):
+        try:
+            return cache[p]
+        except KeyError:
+            cache[p] = ans = os.lstat(p)
+            return ans
+
+    st = stat_func(path)
+    if stat.S_ISDIR(st.st_mode):
         yield path
+
     while True:
-        if os.path.ismount(path):
+        if ismount(path, stat_func):
             break
         old_path = path
         path = os.path.dirname(path)
-        if path == old_path or not path:
+        if not path or path == old_path:
             break
         yield path
 
@@ -35,18 +64,9 @@ def serialize_message(msg):
     return json.dumps(msg, ensure_ascii=False).encode('utf-8')
 
 
-def vcs_dir_ok(p):
-    for q in EXCLUDE_VCS_DIRS:
-        if '/' + q + '/' in p or p.endswith('/' + q):
-            return False
-    return True
-
-
-def is_vcs(path):
-    for directory in generate_directories(path):
-        for vcs, vcs_dir, check in vcs_props:
-            repo_dir = os.path.join(directory, vcs_dir)
-            if vcs_dir_ok(repo_dir) and check(repo_dir):
-                if os.path.isdir(repo_dir) and not os.access(repo_dir, os.X_OK):
-                    continue
-                return vcs
+def readlines(cmd, cwd):
+    p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
+    p.stderr.close()
+    with p.stdout:
+        for line in p.stdout:
+            yield line[:-1].decode('utf-8')
