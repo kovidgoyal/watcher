@@ -7,14 +7,22 @@ import os
 from .constants import ansi_code, bg, fg
 from .vcs import vcs_data
 
+RIGHT_DIVIDER = ''
+VCS_SYMBOL = ''
+VCS_BACKGROUND = 'gray2'
+VCS_FOREGROUND = 'white'
+VCS_DIRTY_FOREGROUND = 'yellow'
+ERROR_FOREGROUND = 'white'
+ERROR_BACKGROUND = 'brightred'
+
 
 def vcs_segment(vcs_data, parts):
     if vcs_data['branch']:
         a = parts.append
-        a(ansi_code(fg('gray')))
-        a('')
-        a(ansi_code(bg('gray'), (fg('yellow') if vcs_data['status'] else fg('white'))))
-        a('\xa0\xa0')
+        a(ansi_code(fg(VCS_BACKGROUND)))
+        a(RIGHT_DIVIDER)
+        a(ansi_code(bg(VCS_BACKGROUND), (fg(VCS_DIRTY_FOREGROUND) if vcs_data['status'] else fg(VCS_FOREGROUND))))
+        a('\xa0{}\xa0'.format(VCS_SYMBOL))
         a(vcs_data['branch'])
         a('\xa0')
 
@@ -22,9 +30,9 @@ def vcs_segment(vcs_data, parts):
 def error_segment(err, parts):
     if err:
         a = parts.append
-        a(ansi_code(fg('brightred')))
-        a('')
-        a(ansi_code(bg('brightred'), fg('white')))
+        a(ansi_code(fg(ERROR_BACKGROUND)))
+        a(RIGHT_DIVIDER)
+        a(ansi_code(bg(ERROR_BACKGROUND), fg(ERROR_FOREGROUND)))
         a('\xa0{}\xa0'.format(err))
 
 
