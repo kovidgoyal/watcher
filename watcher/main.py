@@ -21,6 +21,10 @@ def client(args):
     main(args)
 
 
+def is_ssh():
+    return 'SSH_CLIENT' in os.environ or 'SSH_TTY' in os.environ
+
+
 def parser():
     parser = argparse.ArgumentParser(prog=appname, description='Run the watcher')
     subparsers = parser.add_subparsers(help='Choose whether to run in server or client mode')
@@ -29,6 +33,7 @@ def parser():
                    help='The action to perform')
     s.add_argument('--daemonize', default=False, action='store_true',
                    help='Run the server as a background daemon')
+    s.add_argument('--log', default=os.devnull, help='Log file when daemonized')
     s.set_defaults(func=server)
 
     c = subparsers.add_parser('client')
@@ -46,8 +51,12 @@ def parser():
     v = subparsers.add_parser('prompt', help='Get a nice rendered prompt for use with PS1/RPS1')
     v.add_argument('which', choices=('left', 'right'), help='left or right prompt')
     v.add_argument('--cwd', default=realpath(os.getcwd()), help='The current working directory for this query')
+    v.add_argument('--home', default=realpath(os.path.expanduser('~')), help='The home directory')
+    v.add_argument('--user', default=os.environ.get('USER', os.path.basename(os.path.expanduser('~'))),
+                   help='The current username')
     v.add_argument('--last-exit-code', default='0', help='The last exit code to display')
     v.add_argument('--last-pipe-code', default='0', help='The last pipe exit code to display')
+    v.add_argument('--is-ssh', default='1' if is_ssh() else '0', help='Set to 1 if this is an SSH session')
     v.set_defaults(q='prompt')
 
     return parser

@@ -197,7 +197,7 @@ def run_server(args):
     elif args.action == 'restart':
         kill()
     if args.daemonize:
-        daemonize()
+        daemonize(stdout=args.log, stderr=args.log)
     serversocket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
         serversocket.bind(local_socket_address())

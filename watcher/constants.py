@@ -16,6 +16,17 @@ def local_socket_address():
     return local_socket_address.ADDRESS
 
 
+def hostname():
+    ans = getattr(hostname, 'ans', None)
+    if ans is None:
+        try:
+            with open('/etc/hostname', 'rb') as f:
+                ans = hostname.ans = f.read().decode('utf-8').strip()
+        except Exception:
+            ans = hostname.ans = 'unknown'
+    return ans
+
+
 def ansi_codes():
     if not hasattr(ansi_codes, 'codes'):
         ansi_codes.codes = {
@@ -87,7 +98,7 @@ def bg(name):
 
 
 def ansi_code(*args):
-    args = ('0' if x == 'reset' else x for x in args)
+    args = ('33;0;' if x == 'reset' else x for x in args)
     ans = '%{\x1b[' + ''.join(args)
     ans = ans.rstrip(';') + 'm%}'
     return ans
