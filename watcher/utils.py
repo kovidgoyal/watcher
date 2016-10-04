@@ -23,7 +23,7 @@ def ismount(path, stat_func=os.lstat):
     try:
         s1 = stat_func(path)
         s2 = stat_func(os.path.join(path, '..'))
-    except os.error:
+    except EnvironmentError:
         return False  # It doesn't exist -- so not a mount point :-)
     dev1 = s1.st_dev
     dev2 = s2.st_dev
@@ -40,24 +40,27 @@ def generate_directories(path):
     cache = {}
 
     def stat_func(p):
-        try:
-            return cache[p]
-        except KeyError:
-            cache[p] = ans = os.lstat(p)
-            return ans
+        ans = cache.get(p)
+        if ans is None:
+            ans = cache[p] = os.lstat(p)
+        return ans
 
-    st = stat_func(path)
-    if stat.S_ISDIR(st.st_mode):
-        yield path
+    try:
+        st = stat_func(path)
+    except EnvironmentError:
+        pass
+    else:
+        if stat.S_ISDIR(st.st_mode):
+            yield path
 
-    while True:
-        if ismount(path, stat_func):
-            break
-        old_path = path
-        path = os.path.dirname(path)
-        if not path or path == old_path:
-            break
-        yield path
+        while True:
+            if ismount(path, stat_func):
+                break
+            old_path = path
+            path = os.path.dirname(path)
+            if not path or path == old_path:
+                break
+            yield path
 
 
 def deserialize_message(raw):
