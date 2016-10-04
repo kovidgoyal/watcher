@@ -6,28 +6,39 @@ import sys
 import socket
 import select
 import errno
+import traceback
+from time import monotonic
 
 from .constants import local_socket_address
 from .utils import deserialize_message, serialize_message
+from .inotify import tree_watchers, prune_watchers, add_tree_watch
 
 read_needed, write_needed = set(), set()
 clients = {}
 
 
-def log_error(*args, **kw):
+def print_error(*args, **kw):
     kw['file'] = sys.stderr
     print(*args, **kw)
 
 
 def handle_msg(msg):
-    return msg
+    q = msg.get('q')
+    try:
+        if q == 'watch':
+            w = add_tree_watch(msg['path'])
+            return {'ok': True, 'modified': w.was_modified_since_last_call()}
+    except Exception as err:
+        return {'ok': False, 'msg': str(err), 'tb': traceback.format_exc()}
+
+    return {'ok': False, 'msg': 'Query: {} not understood'.format(q), 'tb': ''}
 
 
 def tick(serversocket):
     try:
-        readable, writable, _ = select.select([serversocket] + list(read_needed), list(write_needed), [], 60)
+        readable, writable, _ = select.select([serversocket] + list(read_needed) + list(tree_watchers), list(write_needed), [])
     except ValueError:
-        log_error('Listening socket was unexpectedly terminated')
+        print_error('Listening socket was unexpectedly terminated')
         raise SystemExit(1)
     for s in readable:
         if s is serversocket:
@@ -38,6 +49,15 @@ def tick(serversocket):
             else:
                 read_needed.add(c)
                 clients[c] = {'rbuf': b''}
+        elif s in tree_watchers:
+            try:
+                s.read()
+            except Exception:
+                print_error(traceback.format_exc())
+                s.close()
+                del tree_watchers[s]
+            else:
+                tree_watchers[s] = monotonic()
         else:
             c = s
             data = clients.get(c)
@@ -51,12 +71,11 @@ def tick(serversocket):
             else:
                 read_needed.discard(c)
                 try:
-                    msg = deserialize_message(data['rbuf'])
+                    msg = deserialize_message(data.pop('rbuf'))
                 except Exception:
                     del clients[c]
                     c.close()
                     continue
-                del data['rbuf']
                 try:
                     data['wbuf'] = serialize_message(handle_msg(msg))
                 except Exception:
@@ -84,6 +103,7 @@ def run_loop(serversocket):
     while True:
         try:
             tick(serversocket)
+            prune_watchers()
         except KeyboardInterrupt:
             raise SystemExit(0)
 
