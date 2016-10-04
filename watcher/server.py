@@ -106,7 +106,11 @@ def tick(serversocket):
             writable.discard(c)
             c.close()
             continue
-        n = c.send(data['wbuf'])
+        try:
+            n = c.send(data['wbuf'])
+        except BrokenPipeError:
+            data['wbuf'] = b''
+            n = 0
         if n > 0:
             data['wbuf'] = data['wbuf'][n:]
         if not data['wbuf']:
