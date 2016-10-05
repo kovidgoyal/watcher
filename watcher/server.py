@@ -14,18 +14,13 @@ import traceback
 from time import monotonic
 
 from .constants import local_socket_address
-from .utils import deserialize_message, serialize_message, String, readlines
+from .utils import deserialize_message, serialize_message, String, readlines, print_error
 from .inotify import tree_watchers, prune_watchers, add_tree_watch
 from .vcs import vcs_data
 from .prompt import prompt_data
 
 read_needed, write_needed = set(), set()
 clients = {}
-
-
-def print_error(*args, **kw):
-    kw['file'] = sys.stderr
-    print(*args, **kw)
 
 
 def handle_msg(msg):

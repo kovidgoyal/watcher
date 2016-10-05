@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
 # License: GPL v3 Copyright: 2016, Kovid Goyal <kovid at kovidgoyal.net>
+from __future__ import print_function, unicode_literals
 
 import os
 import json
 import stat
 import subprocess
+import sys
 
 
 class String(str):
@@ -14,6 +16,11 @@ class String(str):
 
 def realpath(x):
     return os.path.abspath(os.path.realpath(x))
+
+
+def print_error(*args, **kw):
+    kw['file'] = sys.stderr
+    print(*args, **kw)
 
 
 def ismount(path, stat_func=os.lstat):

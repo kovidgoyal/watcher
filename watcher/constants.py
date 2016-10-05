@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
 # License: GPL v3 Copyright: 2016, Kovid Goyal <kovid at kovidgoyal.net>
+from __future__ import unicode_literals
 
 import os
 
 appname = 'watcher'
 LEFT_DIVIDER = ''
+RIGHT_DIVIDER = ''
 LEFT_END = ''
 RIGHT_END = ''
 VCS_SYMBOL = ''
