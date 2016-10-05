@@ -11,6 +11,7 @@ RIGHT_DIVIDER = ''
 LEFT_END = ''
 RIGHT_END = ''
 VCS_SYMBOL = ''
+CLOCK = '⌚'
 
 
 def local_socket_address():

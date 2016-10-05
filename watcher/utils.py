@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
 # License: GPL v3 Copyright: 2016, Kovid Goyal <kovid at kovidgoyal.net>
-from __future__ import print_function, unicode_literals
+from __future__ import print_function, unicode_literals, division
 
 import os
 import json
 import stat
 import subprocess
 import sys
+from math import log
 
 
 class String(str):
@@ -99,3 +100,23 @@ def readlines(cmd, cwd=os.getcwd(), decode=True):
                 yield line[:-1].decode('utf-8')
             else:
                 yield line[:-1]
+
+unit_list = tuple(zip(['', 'k', 'M', 'G', 'T', 'P'], [0, 0, 1, 2, 2, 2]))
+
+
+def humanize_bytes(num, suffix='B', si_prefix=False, space_before_unit=''):
+    '''Return a human friendly byte representation.
+
+    Modified version from http://stackoverflow.com/questions/1094841
+    '''
+    if num == 0:
+        return '0' + suffix
+    div = 1000 if si_prefix else 1024
+    exponent = min(int(log(num, div)) if num else 0, len(unit_list) - 1)
+    quotient = float(num) / div ** exponent
+    unit, decimals = unit_list[exponent]
+    if unit and not si_prefix:
+        unit = unit.upper() + 'i'
+    return '{{quotient:.{decimals}f}}{{unit}}{{suffix}}'\
+        .format(decimals=decimals)\
+        .format(quotient=quotient, unit=unit, suffix=suffix)
