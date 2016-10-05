@@ -100,6 +100,8 @@ def cwd_segment(cwd_parts, parts):
 
 def left_prompt(user, cwd, is_ssh, home):
     parts = []
+    if cwd == home:
+        cwd = '~'
     home = home.rstrip(os.sep) + os.sep
     if cwd.startswith(home):
         cwd = '~' + os.sep + cwd[len(home):]
