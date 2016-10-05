@@ -7,7 +7,7 @@ import os
 
 appname = 'watcher'
 LEFT_DIVIDER = ''
-RIGHT_DIVIDER = ''
+RIGHT_DIVIDER = ''
 LEFT_END = ''
 RIGHT_END = ''
 VCS_SYMBOL = ''
