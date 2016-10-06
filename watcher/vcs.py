@@ -119,7 +119,7 @@ class VCSWatcher:
         return add_tree_watch(self.path)
 
     def data(self, subpath=None, both=False):
-        if self.branch_name is None or self.repo_status is None or (subpath and self.file_status.get(subpath)) is None or \
+        if self.branch_name is None or self.repo_status is None or (subpath and subpath not in self.file_status) or \
                 self.tree_watcher.was_modified_since_last_call():
             self.update(subpath, both)
         return {'branch': self.branch_name, 'repo_status': self.repo_status, 'file_status': self.file_status.get(subpath)}
