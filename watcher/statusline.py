@@ -10,7 +10,7 @@ from collections import namedtuple
 from functools import wraps
 from itertools import count
 
-from .constants import LEFT_END, LEFT_DIVIDER, RIGHT_END, RIGHT_DIVIDER, VCS_SYMBOL
+from .constants import LEFT_END, LEFT_DIVIDER, RIGHT_END, RIGHT_DIVIDER, VCS_SYMBOL, LOCK
 from .client import connect, send_msg, recv_msg
 from .utils import realpath
 
@@ -341,7 +341,7 @@ def branch():
 
 @segment(fg='brightestred', bg='gray3')
 def readonly_indicator():
-    return '\xa0' if int(current_buffer.options['readonly']) else None
+    return LOCK + '\xa0' if int(current_buffer.options['readonly']) else None
 
 
 @segment(fg='gray8', bg=readonly_indicator.bg)

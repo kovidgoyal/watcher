@@ -12,6 +12,7 @@ LEFT_END = ''
 RIGHT_END = ''
 VCS_SYMBOL = ''
 CLOCK = "\U0001F552"
+LOCK = ''
 
 
 def local_socket_address():
