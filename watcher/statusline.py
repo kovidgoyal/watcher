@@ -9,6 +9,8 @@ from collections import namedtuple
 from functools import wraps, partial
 from itertools import count
 
+from .constants import LEFT_END, LEFT_DIVIDER
+
 
 def debug(*a, **k):
     k['file'] = open('/tmp/log', 'a')
@@ -19,31 +21,6 @@ pyeval, python = ('py3eval', 'python3') if sys.version_info.major >= 3 else ('py
 
 STATUSLINE = "%%!%s('sys.statusline.render({})')" % pyeval
 
-vim_modes = {
-    'n': 'NORMAL',
-    'no': 'N·OPER',
-    'v': 'VISUAL',
-    'V': 'V·LINE',
-    '^V': 'V·BLCK',
-    's': 'SELECT',
-    'S': 'S·LINE',
-    '^S': 'S·BLCK',
-    'i': 'INSERT',
-    'R': 'REPLACE',
-    'Rv': 'V·RPLCE',
-    'c': 'COMMND',
-    'cv': 'VIM EX',
-    'ce': 'EX',
-    'r': 'PROMPT',
-    'rm': 'MORE',
-    'r?': 'CONFIRM',
-    '!': 'SHELL',
-}
-
-mode_translations = {
-    chr(ord('V') - 0x40): '^V',
-    chr(ord('S') - 0x40): '^S',
-}
 current_mode = 'nc'
 window = window_id = current_buffer = None
 
@@ -109,26 +86,221 @@ def reset_highlights():
     hl_groups.clear()
 
 
+def highlight(fg=None, bg=None, bold=False):
+    '''Highlight a segment. Automatically creates the highlighting group, on-demand. '''
+    # We don't need to explicitly reset attributes in vim, so skip those calls
+    if not bold and not bg and not fg:
+        return ''
+
+    if not (fg, bg, bold) in hl_groups:
+        hl_group = {
+            'ctermfg': 'NONE',
+            'guifg': 'NONE',
+            'ctermbg': 'NONE',
+            'guibg': 'NONE',
+            'attr': ['NONE'],
+        }
+        if fg:
+            hl_group['ctermfg'] = fg[0]
+            hl_group['guifg'] = fg[1]
+        if bg:
+            hl_group['ctermbg'] = bg[0]
+            hl_group['guibg'] = bg[1]
+        if bold:
+            hl_group['attr'] = ['bold']
+        hl_group['name'] = 'Sl_' + \
+            str(hl_group['ctermfg']) + '_' + \
+            str(hl_group['guifg']) + '_' + \
+            str(hl_group['ctermbg']) + '_' + \
+            str(hl_group['guibg']) + '_' + \
+            ''.join(hl_group['attr'])
+        hl_groups[(fg, bg, bold)] = hl_group
+        vim.command('hi {group} ctermfg={ctermfg} guifg={guifg} guibg={guibg} ctermbg={ctermbg} cterm={attr} gui={attr}'.format(
+            group=hl_group['name'],
+            ctermfg=hl_group['ctermfg'],
+            guifg=hl_group['guifg'],
+            ctermbg=hl_group['ctermbg'],
+            guibg=hl_group['guibg'],
+            attr=','.join(hl_group['attr']),
+        ))
+    return '%#' + hl_groups[(fg, bg, bold)]['name'] + '#'
+
+
+nc_color_translations = {
+    "brightyellow": "darkorange",
+    "brightestred": "darkred",
+    "gray0": "gray0",
+    "gray1": "gray0",
+    "gray2": "gray0",
+    "gray3": "gray1",
+    "gray4": "gray1",
+    "gray5": "gray1",
+    "gray6": "gray1",
+    "gray7": "gray4",
+    "gray8": "gray4",
+    "gray9": "gray4",
+    "gray10": "gray5",
+    "white": "gray6",
+}
+
+mode_colors = {
+    'n': {'fg': 'darkestgreen', 'bg': 'brightgreen'},
+    'i': {'fg': 'white', 'bg': 'darkestcyan'},
+    'v': {"fg": "darkorange", "bg": "brightestorange"},
+    'V': {"fg": "darkorange", "bg": "brightestorange"},
+    '^V': {"fg": "darkorange", "bg": "brightestorange"},
+    'R': {"fg": "white", "bg": "brightred"},
+}
+
+vim_gui_color_map = {
+    # Map color names used in this file to names vim recognizes
+    'brightyellow': 'yellow1',
+
+    'brightestred': 'red1',
+    'brightred': 'red2',
+    'darkred': 'red3',
+
+    'darkorange': 'orangered1',
+    'brightestorange': 'goldenrod',
+
+    'brightgreen': 'olivedrab1',
+    'darkestgreen': 'green4',
+
+    'darkestcyan': 'cyan4',
+    'gray0': 'gray10',
+    'gray1': 'gray18',
+    'gray2': 'gray26',
+    'gray3': 'gray34',
+    'gray4': 'gray43',
+    'gray5': 'gray49',
+    'gray6': 'gray55',
+    'gray7': 'gray63',
+    'gray8': 'gray66',
+    'gray9': 'gray73',
+    'gray10': 'gray80',
+}
+
+vim_tui_color_map = {
+    # Map color names used in this file to names vim recognizes
+    'brightyellow': '226',
+
+    'brightestred': '196',
+    'brightred': '160',
+    'darkred': '88',
+
+    'darkorange': '202',
+    'brightestorange': '227',
+
+    'brightgreen': '191',
+    'darkestgreen': '28',
+
+    'darkestcyan': '36',
+
+    'gray0': '234',
+    'gray1': '236',
+    'gray2': '238',
+    'gray3': '240',
+    'gray4': '242',
+    'gray5': '244',
+    'gray6': '246',
+    'gray7': '248',
+    'gray8': '250',
+    'gray9': '252',
+}
+
+
+def color(name):
+    if name is None:
+        return None
+    if current_mode == 'nc':
+        name = nc_color_translations.get(name, name)
+    return vim_tui_color_map.get(name, name), vim_gui_color_map.get(name, name)
+
+
+def colored(text, fg, bg, bold=False):
+    fg, bg = map(color, (fg, bg))
+    return highlight(fg, bg, bold) + text
+
+
+def safe_int(x):
+    try:
+        return int(x)
+    except Exception:
+        return 0
+
+
 def setup():
-    sys.statusline = namedtuple('StatusLine', 'render reset_highlights')(statusline, reset_highlights)
-    vim.command('augroup statusline')
-    vim.command('	autocmd! ColorScheme * :{} sys.statusline.reset_highlights()'.format(python))
-    vim.command('	autocmd! VimEnter    * :redrawstatus!')
-    vim.command('augroup END')
-    vim.command("set statusline=" + STATUSLINE.format(-1))
+    if safe_int(vim.eval('has("gui_running")')) or safe_int(vim.eval('&t_Co')) >= 256:
+        sys.statusline = namedtuple('StatusLine', 'render reset_highlights')(statusline, reset_highlights)
+        vim.command('augroup statusline')
+        vim.command('	autocmd! ColorScheme * :{} sys.statusline.reset_highlights()'.format(python))
+        vim.command('	autocmd! VimEnter    * :redrawstatus!')
+        vim.command('augroup END')
+        vim.command("set statusline=" + STATUSLINE.format(-1))
 # }}}
+
+
+def segment(fg=None, bg=None, bold=False, soft_divider=False, hard_divider=False):
+    def decorator(func):
+        func.fg, func.bg, func.bold = fg, bg, bold
+        func.soft_divider = soft_divider
+        func.hard_divider = hard_divider
+        return func
+    return decorator
+
+
+def render_segments(segments):
+    for seg in segments:
+        val = seg()
+        if val:
+            yield val, seg
 
 
 # Left segments {{{
 
+vim_modes = {
+    'n': 'NORMAL',
+    'no': 'N·OPER',
+    'v': 'VISUAL',
+    'V': 'V·LINE',
+    '^V': 'V·BLCK',
+    's': 'SELECT',
+    'S': 'S·LINE',
+    '^S': 'S·BLCK',
+    'i': 'INSERT',
+    'R': 'REPLACE',
+    'Rv': 'V·RPLCE',
+    'c': 'COMMND',
+    'cv': 'VIM EX',
+    'ce': 'EX',
+    'r': 'PROMPT',
+    'rm': 'MORE',
+    'r?': 'CONFIRM',
+    '!': 'SHELL',
+}
+
+mode_translations = {
+    chr(ord('V') - 0x40): '^V',
+    chr(ord('S') - 0x40): '^S',
+}
+
+
+@segment(bold=True, hard_divider=True)
 def mode_segment():
     ' Return the current vim mode '
     mode_name = mode_translations.get(current_mode, current_mode)
     ans = vim_modes.get(mode_name)
     if ans is not None:
-        return ans
+        p = 'PASTE' if int(vim.eval('&paste')) else None
+        if p:
+            ans += ' [paste]'
+        q = mode_name if mode_name in mode_colors else mode_name[0]
+        cols = mode_colors.get(q, {'fg': 'white', 'bg': 'black'})
+        mode_segment.fg, mode_segment.bg = cols['fg'], cols['bg']
+        return '\xa0' + ans
 
 
+@segment(fg='brightestorange', bg='darkorange')
 def visual_range():
     '''Return the current visual selection range.
 
@@ -153,14 +325,12 @@ def visual_range():
         return '{0} cols'.format(diff_cols)
 
 
-def paste_indicator():
-    return 'PASTE' if int(vim.eval('&paste')) else None
-
-
+@segment(fg='brightestred', bg='gray4')
 def readonly_indicator():
-    return '' if int(current_buffer.options['readonly']) else None
+    return '\xa0' if int(current_buffer.options['readonly']) else None
 
 
+@segment(fg='gray8', bg=readonly_indicator.bg)
 def file_directory(shorten_user=True, shorten_cwd=True, shorten_home=False):
     '''Return file directory (head component of the file path).
 
@@ -182,31 +352,35 @@ def file_directory(shorten_user=True, shorten_cwd=True, shorten_home=False):
     return file_directory + os.sep if file_directory else None
 
 
+@segment(fg='white', bg=file_directory.bg)
 def file_name():
     '''Return file name (tail component of the file path).'''
     name = current_buffer.name
     if not name:
         return None
-    file_name = fnamemodify(name, ':~:.:t')
-    return file_name
-
-
-def modified_indicator(text='+'):
-    '''Return a file modified indicator. '''
-    return '+' if int(current_buffer.options['modified']) else None
+    ans = fnamemodify(name, ':~:.:t')
+    is_modified = int(current_buffer.options['modified'])
+    file_name.fg = 'brightyellow' if is_modified else 'white'
+    return ans
 
 
 def left():
     ans = []
-    for seg in left.segments:
-        val = seg()
-        if val:
-            ans.append(val)
-    return '\xa0'.join(ans)
+    segments = tuple(render_segments(left.segments))
+    for i, (val, segment) in enumerate(segments):
+        ans.append(colored(val, fg=segment.fg, bg=segment.bg, bold=segment.bold))
+        add_hard_divider = segment.hard_divider or i == len(segments) - 1 or segments[i + 1][1].bg != segment.bg
+        if add_hard_divider:
+            ans.append(colored('\xa0', fg=segment.fg, bg=segment.bg, bold=segment.bold))
+            ans.append(colored(LEFT_END + '\xa0', fg=segment.bg, bg=None if i == len(segments) - 1 else segments[i + 1][1].bg))
+        else:
+            if segment.soft_divider:
+                ans.append(colored('\xa0' + LEFT_DIVIDER + '\xa0', fg=segment.fg, bg=segment.bg))
+    return ''.join(ans)
 
 left.segments = (
-    mode_segment, visual_range, paste_indicator, readonly_indicator,
-    file_directory, file_name, modified_indicator)
+    mode_segment, visual_range, readonly_indicator,
+    file_directory, file_name)
 # }}}
 
 # Right segments {{{
