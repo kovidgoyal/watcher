@@ -6,8 +6,8 @@ from __future__ import unicode_literals
 import os
 
 appname = 'watcher'
-LEFT_DIVIDER = ''
-RIGHT_DIVIDER = ''
+LEFT_DIVIDER = '⧽'
+RIGHT_DIVIDER = '⧼'
 LEFT_END = ''
 RIGHT_END = ''
 VCS_SYMBOL = ''
