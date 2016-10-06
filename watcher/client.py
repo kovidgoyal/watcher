@@ -6,6 +6,7 @@ from __future__ import absolute_import, unicode_literals
 import socket
 import errno
 import functools
+import os
 
 from .constants import local_socket_address
 from .utils import serialize_message, deserialize_message, realpath
@@ -56,7 +57,14 @@ def connect():
 
 @entry
 def vcs(s, args):
-    send_msg(s, {'q': 'vcs', 'path': realpath(args.path)})
+    path = realpath(args.path)
+    both = args.both
+    subpath = None
+    if os.path.isdir(path):
+        both = False
+    else:
+        subpath, path = path, os.path.dirname(path)
+    send_msg(s, {'q': 'vcs', 'path': path, 'subpath': subpath, 'both': both})
     print(recv_msg(s))
 
 

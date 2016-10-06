@@ -67,31 +67,40 @@ def gitcmd(directory, *args):
     return readlines(('git',) + args, directory)
 
 
-def git_status(directory, subpath):
+def git_repo_status(directory):
+    wt_column = ' '
+    index_column = ' '
+    untracked_column = ' '
+    for line in gitcmd(directory, 'status', '--porcelain'):
+        if line[0] == '?':
+            untracked_column = 'U'
+            continue
+        elif line[0] == '!':
+            continue
+
+        if line[0] != ' ':
+            index_column = 'I'
+
+        if line[1] != ' ':
+            wt_column = 'D'
+
+    r = wt_column + index_column + untracked_column
+    return r if r.strip() else ''
+
+
+def git_file_status(directory, subpath):
+    try:
+        return next(gitcmd(directory, 'status', '--porcelain', '--ignored', '--', subpath))[:2]
+    except StopIteration:
+        return ''
+
+
+def git_status(directory, subpath, both=False):
+    if both:
+        return git_repo_status(directory), git_file_status(directory, subpath)
     if subpath:
-        try:
-            return next(gitcmd(directory, 'status', '--porcelain', '--ignored', '--', subpath))[:2]
-        except StopIteration:
-            return ''
-    else:
-        wt_column = ' '
-        index_column = ' '
-        untracked_column = ' '
-        for line in gitcmd(directory, 'status', '--porcelain'):
-            if line[0] == '?':
-                untracked_column = 'U'
-                continue
-            elif line[0] == '!':
-                continue
-
-            if line[0] != ' ':
-                index_column = 'I'
-
-            if line[1] != ' ':
-                wt_column = 'D'
-
-        r = wt_column + index_column + untracked_column
-        return r if r.strip() else ''
+        return None, git_file_status(directory, subpath)
+    return git_repo_status(directory), None
 
 
 class VCSWatcher:
@@ -100,7 +109,8 @@ class VCSWatcher:
         self.path = path
         self.vcs = vcs
         self.branch_name = None
-        self.status = {}
+        self.repo_status = None
+        self.file_status = {}
 
     @property
     def tree_watcher(self):
@@ -108,32 +118,34 @@ class VCSWatcher:
             return add_tree_watch(self.path, git_ignore_modifies)
         return add_tree_watch(self.path)
 
-    def data(self, subpath=None):
-        if self.branch_name is None or self.status.get(subpath) is None or self.tree_watcher.was_modified_since_last_call():
-            self.update(subpath)
-        return {'branch': self.branch_name, 'status': self.status[subpath]}
+    def data(self, subpath=None, both=False):
+        if self.branch_name is None or self.repo_status is None or self.file_status.get(subpath) is None or self.tree_watcher.was_modified_since_last_call():
+            self.update(subpath, both)
+        return {'branch': self.branch_name, 'repo_status': self.repo_status, 'file_status': self.file_status.get(subpath)}
 
-    def update(self, subpath=None):
+    def update(self, subpath=None, both=False):
         self.vcs, self.path = is_vcs(self.path)
         if self.vcs == 'git':
             self.branch_name = git_branch_name(self.path)
-            self.status[subpath] = git_status(self.path, subpath)
+            self.repo_status, self.file_status[subpath] = git_status(self.path, subpath, both)
         else:
-            self.branch_name = None
-            self.status = {}
+            self.branch_name = self.repo_status = None
+            self.file_status = {}
 
 
 watched_trees = {}
 
 
-def vcs_data(path, subpath=None):
+def vcs_data(path, subpath=None, both=False):
     path = realpath(path)
     vcs, vcs_dir = is_vcs(path)
     ans = {'branch': None, 'status': None}
     if vcs:
+        if subpath and os.path.isabs(subpath):
+            subpath = os.path.relpath(subpath, vcs_dir)
         w = watched_trees.get(vcs_dir)
         if w is None:
             watched_trees[path] = w = VCSWatcher(vcs_dir, vcs)
         if w is not None:
-            ans = w.data(subpath)
+            ans = w.data(subpath, both)
     return ans

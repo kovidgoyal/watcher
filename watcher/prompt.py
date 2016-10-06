@@ -28,7 +28,7 @@ def vcs_segment(vcs_data, parts):
         a = parts.append
         a(ansi_code(fg(VCS_BACKGROUND)))
         a(RIGHT_END)
-        a(ansi_code(bg(VCS_BACKGROUND), (fg(VCS_DIRTY_FOREGROUND) if vcs_data['status'] else fg(VCS_FOREGROUND))))
+        a(ansi_code(bg(VCS_BACKGROUND), (fg(VCS_DIRTY_FOREGROUND) if vcs_data['repo_status'] else fg(VCS_FOREGROUND))))
         a('\xa0{}\xa0'.format(VCS_SYMBOL))
         a(vcs_data['branch'])
         a('\xa0')

@@ -41,7 +41,8 @@ def parser():
     subparsers = c.add_subparsers(help='Choose query to make of the server')
 
     v = subparsers.add_parser('vcs', help='Query the VCS status of a directory')
-    v.add_argument('path', help='Path of directory to query')
+    v.add_argument('path', help='Path of directory or file to query')
+    v.add_argument('--both', action='store_true', help='If True, both the repo status and the status of the file passed in as path will be queried')
     v.set_defaults(q='vcs')
 
     v = subparsers.add_parser('watch', help='Check if a directory tree has changed since the last call')

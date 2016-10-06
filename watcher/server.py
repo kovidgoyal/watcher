@@ -33,7 +33,7 @@ def handle_msg(msg):
                 print_error(traceback.format_exc())
                 return String(err)
         if q == 'vcs':
-            ans = vcs_data(msg['path'], subpath=msg.get('subpath'))
+            ans = vcs_data(msg['path'], subpath=msg.get('subpath'), both=msg.get('both', False))
             ans['ok'] = True
             return ans
         if q == 'watch':

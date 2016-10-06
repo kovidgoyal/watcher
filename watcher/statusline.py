@@ -10,7 +10,9 @@ from collections import namedtuple
 from functools import wraps
 from itertools import count
 
-from .constants import LEFT_END, LEFT_DIVIDER, RIGHT_END, RIGHT_DIVIDER
+from .constants import LEFT_END, LEFT_DIVIDER, RIGHT_END, RIGHT_DIVIDER, VCS_SYMBOL
+from .client import connect, send_msg, recv_msg
+from .utils import realpath
 
 
 def debug(*a, **k):
@@ -330,7 +332,14 @@ def visual_range():
         return '{0} cols'.format(diff_cols)
 
 
-@segment(fg='brightestred', bg='gray4')
+@segment(hard_divider=True, bg='gray2')
+def branch():
+    if fetch_vcs_data.branch:
+        branch.fg = 'brightyellow' if fetch_vcs_data.repo_status else 'white'
+        return VCS_SYMBOL + '\xa0' + fetch_vcs_data.branch
+
+
+@segment(fg='brightestred', bg='gray3')
 def readonly_indicator():
     return '\xa0' if int(current_buffer.options['readonly']) else None
 
@@ -369,6 +378,40 @@ def file_name():
     return ans
 
 
+@segment(bg=file_name.bg)
+def file_status():
+    d = fetch_vcs_data.file_status
+    if d:
+        color = 'white'
+        if 'M' in d:
+            color = 'brightestorange'
+        elif 'A' in d:
+            color = 'brightgreen'
+        elif 'D' in d:
+            color = 'brightestred'
+        file_status.fg = color
+        return d
+
+
+def fetch_vcs_data():
+    name = current_buffer.name
+    if name and not current_buffer.options['buftype']:
+        s = connect()
+        path = realpath(name)
+        both = not os.path.isdir(path)
+        subpath = None
+        if both:
+            subpath, path = path, os.path.dirname(path)
+        send_msg(s, {'q': 'vcs', 'path': path, 'subpath': subpath, 'both': both})
+        ans = recv_msg(s)
+        if ans['ok']:
+            fetch_vcs_data.repo_status = ans['repo_status']
+            fetch_vcs_data.branch = ans['branch']
+            fetch_vcs_data.file_status = ans['file_status']
+    else:
+        fetch_vcs_data.repo_status = fetch_vcs_data.file_status = fetch_vcs_data.branch = None
+
+
 def left():
     ans = []
     segments = tuple(render_segments(left.segments))
@@ -386,8 +429,8 @@ def left():
     return ''.join(ans)
 
 left.segments = (
-    mode_segment, visual_range, readonly_indicator,
-    file_directory, file_name)
+    mode_segment, visual_range, branch,
+    readonly_indicator, file_directory, file_name, file_status)
 # }}}
 
 # Right segments {{{
@@ -466,6 +509,7 @@ def statusline(wid):
             return 'No window for window_id: {!r}'.format(window_id)
         current_buffer = window.buffer
         current_mode = mode(1) if window is vim.current.window else 'nc'
+        fetch_vcs_data()
         ans = left()
         ans += '%='  # left/right separator
         ans += right()
