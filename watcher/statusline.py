@@ -405,9 +405,9 @@ def fetch_vcs_data():
         send_msg(s, {'q': 'vcs', 'path': path, 'subpath': subpath, 'both': both})
         ans = recv_msg(s)
         if ans['ok']:
-            fetch_vcs_data.repo_status = ans['repo_status']
-            fetch_vcs_data.branch = ans['branch']
-            fetch_vcs_data.file_status = ans['file_status']
+            fetch_vcs_data.repo_status = ans.get('repo_status')
+            fetch_vcs_data.branch = ans.get('branch')
+            fetch_vcs_data.file_status = ans.get('file_status')
     else:
         fetch_vcs_data.repo_status = fetch_vcs_data.file_status = fetch_vcs_data.branch = None
 
