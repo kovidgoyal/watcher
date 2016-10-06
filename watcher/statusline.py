@@ -356,7 +356,7 @@ def file_directory(shorten_user=True, shorten_cwd=True, shorten_home=False):
     return file_directory + os.sep if file_directory else None
 
 
-@segment(fg='white', bg=file_directory.bg)
+@segment(fg='white', bg=file_directory.bg, bold=True)
 def file_name():
     '''Return file name (tail component of the file path).'''
     name = current_buffer.name
