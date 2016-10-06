@@ -6,10 +6,10 @@ import sys
 import os
 import vim
 from collections import namedtuple
-from functools import wraps, partial
+from functools import wraps
 from itertools import count
 
-from .constants import LEFT_END, LEFT_DIVIDER
+from .constants import LEFT_END, LEFT_DIVIDER, RIGHT_END, RIGHT_DIVIDER
 
 
 def debug(*a, **k):
@@ -217,7 +217,7 @@ def color(name):
     return vim_tui_color_map.get(name, name), vim_gui_color_map.get(name, name)
 
 
-def colored(text, fg, bg, bold=False):
+def colored(text, fg=None, bg=None, bold=False):
     fg, bg = map(color, (fg, bg))
     return highlight(fg, bg, bold) + text
 
@@ -254,6 +254,10 @@ def render_segments(segments):
         val = seg()
         if val:
             yield val, seg
+
+
+def escape(text):
+    return text.replace(' ', '\xa0').replace('%', '%%')
 
 
 # Left segments {{{
@@ -297,7 +301,7 @@ def mode_segment():
         q = mode_name if mode_name in mode_colors else mode_name[0]
         cols = mode_colors.get(q, {'fg': 'white', 'bg': 'black'})
         mode_segment.fg, mode_segment.bg = cols['fg'], cols['bg']
-        return '\xa0' + ans
+        return ans
 
 
 @segment(fg='brightestorange', bg='darkorange')
@@ -368,7 +372,9 @@ def left():
     ans = []
     segments = tuple(render_segments(left.segments))
     for i, (val, segment) in enumerate(segments):
-        ans.append(colored(val, fg=segment.fg, bg=segment.bg, bold=segment.bold))
+        if i == 0:
+            val = '\xa0' + val
+        ans.append(colored(escape(val), fg=segment.fg, bg=segment.bg, bold=segment.bold))
         add_hard_divider = segment.hard_divider or i == len(segments) - 1 or segments[i + 1][1].bg != segment.bg
         if add_hard_divider:
             ans.append(colored('\xa0', fg=segment.fg, bg=segment.bg, bold=segment.bold))
@@ -386,45 +392,65 @@ left.segments = (
 # Right segments {{{
 
 
-def buf_opt(name):
-    return current_buffer.options[name].decode('utf-8', 'replace') or None
-file_format = partial(buf_opt, 'fileformat')
-file_encoding = partial(buf_opt, 'fileencoding')
-file_type = partial(buf_opt, 'filetype')
+def file_data(name):
+    @segment(fg='gray8', soft_divider=True)
+    def func():
+        return current_buffer.options[name].decode('utf-8', 'replace') or None
+    func.__name__ = name
+    return func
+
+file_format = file_data('fileformat')
+file_encoding = file_data('fileencoding')
+file_type = file_data('filetype')
 
 
+@segment(fg='white', bg='gray2')
 def line_percent():
     '''Return the cursor position in the file as a percentage.'''
     line_current = window.cursor[0]
     line_last = len(current_buffer)
     percentage = line_current * 100.0 / line_last
-    return str(int(round(percentage)))
+    return str(int(round(percentage))) + '%'
 
 
+@segment(bg='white', fg='black', bold=True)
 def line_current():
     '''Return the current cursor line.'''
-    return str(window.cursor[0])
+    return '\xa0' + str(window.cursor[0])
 
 
+@segment()
 def col_current():
     '''Return the current cursor column.  '''
     return str(window.cursor[1] + 1)
 
 
 @window_cached
+@segment(bg=line_current.bg, fg='gray4')
 def virtcol_current():
     '''Return current visual column with concealed characters ingored'''
     col = virtcol('.')
-    return str(col)
+    return ':' + str(col)
 
 
 def right():
     ans = []
-    for seg in right.segments:
-        val = seg()
-        if val:
-            ans.append(val)
-    return '\xa0'.join(ans)
+    segments = tuple(render_segments(right.segments))
+    for i, (val, segment) in enumerate(segments):
+        add_hard_divider = segment.hard_divider or i == 0 or segments[i - 1][1].bg != segment.bg
+        if add_hard_divider:
+            ans.append(colored('\xa0'))
+            if segment.bg:
+                ans.append(colored(RIGHT_END, fg=segment.bg, bg=None if i == 0 else segments[i - 1][1].bg))
+            ans.append(colored('\xa0', fg=segment.fg, bg=segment.bg, bold=segment.bold))
+        else:
+            if segment.soft_divider:
+                ans.append(colored('\xa0' + RIGHT_DIVIDER + '\xa0', fg=segment.fg, bg=segment.bg))
+        if i == len(segments) - 1:
+            val += '\xa0'
+        ans.append(colored(escape(val), fg=segment.fg, bg=segment.bg, bold=segment.bold))
+
+    return ''.join(ans)
 right.segments = (file_format, file_encoding, file_type, line_percent, line_current, virtcol_current)
 
 # }}}
