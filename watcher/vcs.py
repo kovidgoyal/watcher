@@ -119,18 +119,19 @@ class VCSWatcher:
         return add_tree_watch(self.path)
 
     def data(self, subpath=None, both=False):
-        if self.branch_name is None or self.repo_status is None or self.file_status.get(subpath) is None or self.tree_watcher.was_modified_since_last_call():
+        if self.branch_name is None or self.repo_status is None or (subpath and self.file_status.get(subpath)) is None or \
+                self.tree_watcher.was_modified_since_last_call():
             self.update(subpath, both)
         return {'branch': self.branch_name, 'repo_status': self.repo_status, 'file_status': self.file_status.get(subpath)}
 
     def update(self, subpath=None, both=False):
         self.vcs, self.path = is_vcs(self.path)
+        self.file_status = {}  # All saved file statuses are outdated
         if self.vcs == 'git':
             self.branch_name = git_branch_name(self.path)
             self.repo_status, self.file_status[subpath] = git_status(self.path, subpath, both)
         else:
             self.branch_name = self.repo_status = None
-            self.file_status = {}
 
 
 watched_trees = {}
