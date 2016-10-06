@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# vim:fileencoding=utf-8
+# vim:fileencoding=utf-8:nospell
 # License: GPL v3 Copyright: 2016, Kovid Goyal <kovid at kovidgoyal.net>
 from __future__ import division, unicode_literals, print_function
 
@@ -384,17 +384,20 @@ def file_status():
     if d:
         color = 'white'
         if 'M' in d:
-            color = 'brightestorange'
+            color = 'brightestorange' if d == ' M' else 'brightgreen'
         elif 'A' in d:
             color = 'brightgreen'
         elif 'D' in d:
             color = 'brightestred'
+        elif '??' == d:
+            color = 'brightred'
         file_status.fg = color
-        return d
+        return '\xa0' + d.rstrip()
 
 
 def fetch_vcs_data():
     name = current_buffer.name
+    fetch_vcs_data.repo_status = fetch_vcs_data.file_status = fetch_vcs_data.branch = None
     if name and not current_buffer.options['buftype']:
         s = connect()
         path = realpath(name)
@@ -402,14 +405,13 @@ def fetch_vcs_data():
         subpath = None
         if both:
             subpath, path = path, os.path.dirname(path)
-        send_msg(s, {'q': 'vcs', 'path': path, 'subpath': subpath, 'both': both})
-        ans = recv_msg(s)
-        if ans['ok']:
-            fetch_vcs_data.repo_status = ans.get('repo_status')
-            fetch_vcs_data.branch = ans.get('branch')
-            fetch_vcs_data.file_status = ans.get('file_status')
-    else:
-        fetch_vcs_data.repo_status = fetch_vcs_data.file_status = fetch_vcs_data.branch = None
+        if not subpath.startswith('.git/'):
+            send_msg(s, {'q': 'vcs', 'path': path, 'subpath': subpath, 'both': both})
+            ans = recv_msg(s)
+            if ans['ok']:
+                fetch_vcs_data.repo_status = ans.get('repo_status')
+                fetch_vcs_data.branch = ans.get('branch')
+                fetch_vcs_data.file_status = ans.get('file_status')
 
 
 def left():
