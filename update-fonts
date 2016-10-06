@@ -1,0 +1,2 @@
+#!/bin/sh
+fontforge -script fontpatcher.py --dest-dir ~/work/env/conf/fonts /usr/share/fonts/TTF/UbuntuMono-*.ttf
