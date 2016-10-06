@@ -128,12 +128,12 @@ watched_trees = {}
 
 def vcs_data(path, subpath=None):
     path = realpath(path)
-    w = watched_trees.get(path)
+    vcs, vcs_dir = is_vcs(path)
     ans = {'branch': None, 'status': None}
-    if w is None:
-        vcs, vcs_dir = is_vcs(path)
-        if vcs:
+    if vcs:
+        w = watched_trees.get(vcs_dir)
+        if w is None:
             watched_trees[path] = w = VCSWatcher(vcs_dir, vcs)
-    if w is not None:
-        ans = w.data(subpath)
+        if w is not None:
+            ans = w.data(subpath)
     return ans
