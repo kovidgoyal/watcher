@@ -7,7 +7,6 @@ import sys
 import os
 import vim
 from collections import namedtuple
-from itertools import count
 
 from .constants import LEFT_END, LEFT_DIVIDER, RIGHT_END, RIGHT_DIVIDER, VCS_SYMBOL, LOCK
 from .client import connect, send_msg, recv_msg
@@ -21,29 +20,7 @@ def debug(*a, **k):
 # vim bindings {{{
 pyeval, python = ('py3eval', 'python3') if sys.version_info.major >= 3 else ('pyeval', 'python')
 
-STATUSLINE = "%%!%s('sys.statusline.render({})')" % pyeval
-
 current_mode = 'nc'
-
-
-def win_idx(window_id):
-    ' Install a local statusline in every window, so that we can show correct data when multiple windows are present '
-    r = None
-    for window in vim.windows:
-        try:
-            curwindow_id = window.vars['statusline_window_id']
-            if r is not None and curwindow_id == window_id:
-                raise KeyError
-        except KeyError:
-            curwindow_id = next(win_idx.window_id)
-            window.vars['statusline_window_id'] = curwindow_id
-        statusline = STATUSLINE.format(curwindow_id)
-        if window.options['statusline'] != statusline:
-            window.options['statusline'] = statusline
-        if (curwindow_id == window_id) if window_id is not None else (window is vim.current.window):
-            r = window, curwindow_id
-    return r or (None, None)
-win_idx.window_id = count()
 
 
 hl_groups = {}
@@ -198,8 +175,28 @@ def safe_int(x):
 
 def setup():
     if safe_int(vim.eval('has("gui_running")')) or safe_int(vim.eval('&t_Co')) >= 256:
+        sys.statusline = namedtuple('StatusLine', 'render reset_highlights debug')(statusline, reset_highlights, debug)
         vim.command('''
-function g:Get_statusline_data(winnr)
+function g:StatusLine_render(winid)
+    let winnr = win_id2win(a:winid)
+    return PYEVAL('sys.statusline.render('.winnr.')')
+endfunction'''.replace('PYEVAL', pyeval))
+
+    vim.command('''
+function g:StatusLine_new_window()
+    for i in range(1, winnr('$'))
+        let winid = win_getid(i)
+        let statusline = "%!g:StatusLine_render(".winid.")"
+        let csl = getwinvar(i, '&statusline')
+        if csl != statusline
+            call setwinvar(i, '&statusline', statusline)
+        endif
+    endfor
+    return g:StatusLine_render(win_getid())
+endfunction''')
+
+    vim.command('''
+function g:StatusLine_get_data(winnr)
     let cbufnr = winbufnr(a:winnr)
     let m = 'nc'
     let vstart = ''
@@ -223,15 +220,13 @@ function g:Get_statusline_data(winnr)
         'vstart':vstart, 'vend':vend \
     }
     return ans
-endfunction
-''')
+endfunction ''')
 
-        sys.statusline = namedtuple('StatusLine', 'render reset_highlights')(statusline, reset_highlights)
-        vim.command('augroup statusline')
-        vim.command('	autocmd! ColorScheme * :{} sys.statusline.reset_highlights()'.format(python))
-        vim.command('	autocmd! VimEnter    * :redrawstatus!')
-        vim.command('augroup END')
-        vim.command("set statusline=" + STATUSLINE.format(-1))
+    vim.command('augroup statusline')
+    vim.command('	autocmd! ColorScheme * :{} sys.statusline.reset_highlights()'.format(python))
+    vim.command('	autocmd! VimEnter    * :redrawstatus!')
+    vim.command('augroup END')
+    vim.command("set statusline=%!g:StatusLine_new_window()")
 # }}}
 
 
@@ -470,15 +465,12 @@ right.segments = (file_format, file_encoding, file_type, line_percent, line_curr
 # }}}
 
 
-def statusline(wid):
+def statusline(winnr):
     ' The function responsible for rendering the statusline '
     global current_mode
-    window, window_id = win_idx(None if wid == -1 else wid)
     try:
-        if not window:
-            return 'No window for window_id: {!r}'.format(window_id)
-        current_data = statusline.data = vim.eval('g:Get_statusline_data({})'.format(window.number))
-        current_mode = current_data['mode']
+        statusline.data = vim.eval('g:StatusLine_get_data({})'.format(winnr))
+        current_mode = statusline.data['mode']
         fetch_vcs_data()
         ans = left()
         ans += '%='  # left/right separator
