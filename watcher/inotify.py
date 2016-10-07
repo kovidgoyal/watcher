@@ -136,15 +136,14 @@ read.buf = b''
 
 class TreeWatcher:
 
-    def __init__(self, basedir, ignore_event=lambda path, name: False):
+    def __init__(self, basedir):
         self.os = os
         self.inotify = load_inotify()
         self.inotify_fd = self.inotify.init1(os.O_CLOEXEC | os.O_NONBLOCK)
         if self.inotify_fd == -1:
             raise EnvironmentError(os.strerror(ctypes.get_errno()))
+        self.clients = {}
         self.basedir = realpath(basedir)
-        self.ignore_event = ignore_event
-        self.modified = True
         self.watch_tree()
 
     def fileno(self):
@@ -233,17 +232,21 @@ class TreeWatcher:
         self.watched_rmap[wd] = path
         return True
 
+    def add_client(self, ignore_event=None):
+        self.clients[ignore_event] = self.clients.get(ignore_event, True)
+
     def process_event(self, wd, mask, cookie, name):
         if wd == -1 and (mask & self.Q_OVERFLOW):
             # We missed some INOTIFY events, so we dont
             # know the state of any tracked dirs.
             self.watch_tree()
-            self.modified = True
+            self.clients = {k: True for k in self.clients}
             return
         path = self.watched_rmap.get(wd, None)
         if path is not None:
-            if not self.ignore_event(path, name):
-                self.modified = True
+            for ignore_event in tuple(self.clients):
+                if ignore_event is None or not ignore_event(path, name):
+                    self.clients[ignore_event] = True
             if mask & CREATE:
                 # A new sub-directory might have been created, monitor it.
                 try:
@@ -259,8 +262,11 @@ class TreeWatcher:
             if (mask & DELETE_SELF or mask & MOVE_SELF) and path == self.basedir:
                 raise ValueError('The directory %s was moved/deleted' % path)
 
-    def was_modified_since_last_call(self):
-        ret, self.modified = self.modified, False
+    def was_modified_since_last_call(self, ignore_event=None):
+        try:
+            ret, self.clients[ignore_event] = self.clients[ignore_event], False
+        except KeyError:
+            ret = False
         return ret
 
 
@@ -280,12 +286,13 @@ def prune_watchers(limit=2):
         del tree_watchers[w]
 
 
-def add_tree_watch(basedir, ignore_event=lambda path, name: False):
+def add_tree_watch(basedir, ignore_event=None):
     basedir = realpath(basedir)
     if basedir in existing_watches:
         w = existing_watches[basedir]
     else:
-        w = TreeWatcher(basedir, ignore_event=ignore_event)
+        w = TreeWatcher(basedir)
         existing_watches[w.basedir] = w
+    w.add_client(ignore_event)
     tree_watchers[w] = monotonic()
     return w

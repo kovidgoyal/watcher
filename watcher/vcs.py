@@ -10,35 +10,9 @@ from .inotify import add_tree_watch
 from .utils import generate_directories, realpath, readlines
 
 EXCLUDE_VCS_DIRS = frozenset('qt5'.split())
-vcs_props = (
-    ('git', '.git', os.path.exists),
-    # ('mercurial', '.hg', os.path.isdir),
-    # ('bzr', '.bzr', os.path.isdir),
-)
 
 
-def vcs_dir_ok(p):
-    for q in EXCLUDE_VCS_DIRS:
-        if '/' + q + '/' in p or p.endswith('/' + q):
-            return False
-    return True
-
-
-def is_vcs(path):
-    for directory in generate_directories(path):
-        for vcs, vcs_dir, check in vcs_props:
-            repo_dir = os.path.join(directory, vcs_dir)
-            if vcs_dir_ok(repo_dir) and check(repo_dir):
-                if os.path.isdir(repo_dir) and not os.access(repo_dir, os.X_OK):
-                    continue
-                return vcs, directory
-    return None, None
-
-
-def git_ignore_modifies(path, name):
-    return path.endswith('.git') and name == 'index.lock'
-
-
+# git {{{
 def git_directory(directory):
     path = os.path.join(directory, '.git')
     try:
@@ -103,29 +77,57 @@ def git_status(directory, subpath, both=False):
     return git_repo_status(directory), None
 
 
+def git_ignore_modified(path, name):
+    return path.endswith('.git') and name == 'index.lock'
+# }}}
+
+
+def vcs_dir_ok(p):
+    for q in EXCLUDE_VCS_DIRS:
+        if '/' + q + '/' in p or p.endswith('/' + q):
+            return False
+    return True
+
+
+def is_vcs(path):
+    for directory in generate_directories(path):
+        for vcs, vcs_dir, check, ignore_event in vcs_props:
+            repo_dir = os.path.join(directory, vcs_dir)
+            if vcs_dir_ok(repo_dir) and check(repo_dir):
+                if os.path.isdir(repo_dir) and not os.access(repo_dir, os.X_OK):
+                    continue
+                return vcs, directory, ignore_event
+    return None, None, None
+
+vcs_props = (
+    ('git', '.git', os.path.exists, git_ignore_modified),
+    # ('mercurial', '.hg', os.path.isdir, None),
+    # ('bzr', '.bzr', os.path.isdir, None),
+)
+
+
 class VCSWatcher:
 
-    def __init__(self, path, vcs):
+    def __init__(self, path, vcs, ignore_event):
         self.path = path
         self.vcs = vcs
+        self.ignore_event = ignore_event
         self.branch_name = None
         self.repo_status = None
         self.file_status = {}
 
     @property
     def tree_watcher(self):
-        if self.vcs == 'git':
-            return add_tree_watch(self.path, git_ignore_modifies)
-        return add_tree_watch(self.path)
+        return add_tree_watch(self.path, self.ignore_event)
 
     def data(self, subpath=None, both=False):
         if self.branch_name is None or self.repo_status is None or (subpath and subpath not in self.file_status) or \
-                self.tree_watcher.was_modified_since_last_call():
+                self.tree_watcher.was_modified_since_last_call(self.ignore_event):
             self.update(subpath, both)
         return {'branch': self.branch_name, 'repo_status': self.repo_status, 'file_status': self.file_status.get(subpath)}
 
     def update(self, subpath=None, both=False):
-        self.vcs, self.path = is_vcs(self.path)
+        self.vcs, self.path, self.ignore_event = is_vcs(self.path)
         self.file_status = {}  # All saved file statuses are outdated
         if self.vcs == 'git':
             self.branch_name = git_branch_name(self.path)
@@ -139,14 +141,14 @@ watched_trees = {}
 
 def vcs_data(path, subpath=None, both=False):
     path = realpath(path)
-    vcs, vcs_dir = is_vcs(path)
+    vcs, vcs_dir, ignore_event = is_vcs(path)
     ans = {'branch': None, 'status': None}
     if vcs:
         if subpath and os.path.isabs(subpath):
             subpath = os.path.relpath(subpath, vcs_dir)
         w = watched_trees.get(vcs_dir)
         if w is None:
-            watched_trees[path] = w = VCSWatcher(vcs_dir, vcs)
+            watched_trees[path] = w = VCSWatcher(vcs_dir, vcs, ignore_event)
         if w is not None:
             ans = w.data(subpath, both)
     return ans
