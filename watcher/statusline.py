@@ -6,6 +6,7 @@ from __future__ import division, unicode_literals, print_function
 import sys
 import os
 import vim
+import codecs
 from collections import namedtuple
 
 from .constants import LEFT_END, LEFT_DIVIDER, RIGHT_END, RIGHT_DIVIDER, VCS_SYMBOL, LOCK
@@ -14,7 +15,7 @@ from .utils import realpath
 
 
 def debug(*a, **k):
-    k['file'] = open('/tmp/log', 'a')
+    k['file'] = codecs.open('/tmp/log', 'ab', 'utf-8', 'replace')
     return print(*a, **k)
 
 # vim bindings {{{
@@ -54,9 +55,9 @@ def highlight(fg=None, bg=None, bold=False):
             hl_group['attr'] = ['bold']
         hl_group['name'] = 'Sl_' + \
             str(hl_group['ctermfg']) + '_' + \
-            str(hl_group['guifg']) + '_' + \
+            str(hl_group['guifg']).replace('#', '') + '_' + \
             str(hl_group['ctermbg']) + '_' + \
-            str(hl_group['guibg']) + '_' + \
+            str(hl_group['guibg']).replace('#', '') + '_' + \
             ''.join(hl_group['attr'])
         hl_groups[(fg, bg, bold)] = hl_group
         vim.command('hi {group} ctermfg={ctermfg} guifg={guifg} guibg={guibg} ctermbg={ctermbg} cterm={attr} gui={attr}'.format(
@@ -98,30 +99,30 @@ mode_colors = {
 
 vim_gui_color_map = {
     # Map color names used in this file to names vim recognizes
-    'brightyellow': 'yellow1',
+    'brightyellow': '#ffff00',
 
-    'brightestred': 'red1',
-    'brightred': 'red2',
-    'darkred': 'red3',
+    'brightestred': '#ff0000',
+    'brightred': '#d70000',
+    'darkred': '#870000',
 
-    'darkorange': 'orangered1',
-    'brightestorange': 'goldenrod',
+    'darkorange': '#ff5f00',
+    'brightestorange': '#ffff5f',
 
-    'brightgreen': 'olivedrab1',
-    'darkestgreen': 'green4',
+    'brightgreen': '#dfff5f',
+    'darkestgreen': '#008700',
 
-    'darkestcyan': 'cyan4',
-    'gray0': 'gray10',
-    'gray1': 'gray18',
-    'gray2': 'gray26',
-    'gray3': 'gray34',
-    'gray4': 'gray43',
-    'gray5': 'gray49',
-    'gray6': 'gray55',
-    'gray7': 'gray63',
-    'gray8': 'gray66',
-    'gray9': 'gray73',
-    'gray10': 'gray80',
+    'darkestcyan': '#af8700',
+    'gray0': '#1c1c1c',
+    'gray1': '#303030',
+    'gray2': '#444444',
+    'gray3': '#585858',
+    'gray4': '#6c6c6c',
+    'gray5': '#808080',
+    'gray6': '#949494',
+    'gray7': '#a8a8a8',
+    'gray8': '#bcbcbc',
+    'gray9': '#d0d0d0',
+    'gray10': '#e4e4e4',
 }
 
 vim_tui_color_map = {
@@ -150,6 +151,7 @@ vim_tui_color_map = {
     'gray7': '248',
     'gray8': '250',
     'gray9': '252',
+    'gray10': '254',
 }
 
 
