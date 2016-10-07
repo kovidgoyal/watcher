@@ -188,8 +188,13 @@ def kill():
 
 def check_accepting_connections():
     from .client import connect
-    s = connect()
-    s.close()
+    try:
+        s = connect()
+        s.close()
+    except Exception:
+        sys.stdout.write('failed')
+        raise SystemExit(1)
+    sys.stdout.write('ok')
 
 
 def run_server(args):
