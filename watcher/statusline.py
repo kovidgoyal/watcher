@@ -111,7 +111,7 @@ vim_gui_color_map = {
     'brightgreen': '#dfff5f',
     'darkestgreen': '#008700',
 
-    'darkestcyan': '#af8700',
+    'darkestcyan': '#005fff',
     'gray0': '#1c1c1c',
     'gray1': '#303030',
     'gray2': '#444444',
@@ -139,7 +139,7 @@ vim_tui_color_map = {
     'brightgreen': '191',
     'darkestgreen': '28',
 
-    'darkestcyan': '36',
+    'darkestcyan': '27',
 
     'gray0': '234',
     'gray1': '236',
