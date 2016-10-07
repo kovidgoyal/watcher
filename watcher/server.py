@@ -186,11 +186,19 @@ def kill():
                 os.kill(pid, signal.SIGKILL)
 
 
+def check_accepting_connections():
+    from .client import connect
+    s = connect()
+    s.close()
+
+
 def run_server(args):
     if args.action == 'kill':
         return kill()
     elif args.action == 'restart':
         kill()
+    elif args.action == 'check':
+        return check_accepting_connections()
     if args.daemonize:
         daemonize(stdout=args.log, stderr=args.log)
     serversocket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
