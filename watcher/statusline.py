@@ -381,7 +381,7 @@ def fetch_vcs_data():
         subpath = None
         if both:
             subpath, path = path, os.path.dirname(path)
-        if not subpath.startswith('.git/'):
+        if not (subpath or '').startswith('.git/'):
             send_msg(s, {'q': 'vcs', 'path': path, 'subpath': subpath, 'both': both})
             ans = recv_msg(s)
             if ans['ok']:
