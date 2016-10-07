@@ -7,7 +7,6 @@ import sys
 import os
 import vim
 from collections import namedtuple
-from functools import wraps
 from itertools import count
 
 from .constants import LEFT_END, LEFT_DIVIDER, RIGHT_END, RIGHT_DIVIDER, VCS_SYMBOL, LOCK
@@ -25,26 +24,6 @@ pyeval, python = ('py3eval', 'python3') if sys.version_info.major >= 3 else ('py
 STATUSLINE = "%%!%s('sys.statusline.render({})')" % pyeval
 
 current_mode = 'nc'
-window = window_id = current_buffer = None
-
-
-def vim_get_func(f, str_returned=False):
-    '''Return a vim function binding.'''
-    func = vim.bindeval('function("' + f + '")')
-    if str_returned:
-        @wraps(func)
-        def wrapper(*a, **k):
-            return func(*a, **k).decode('utf-8', errors='replace')
-        return wrapper
-    return func
-mode = vim_get_func('mode', True)
-getpos = vim_get_func('getpos')
-virtcol = vim_get_func('virtcol')
-fnamemodify = vim_get_func('fnamemodify', True)
-expand = vim_get_func('expand', True)
-bufnr = vim_get_func('bufnr')
-line2byte = vim_get_func('line2byte')
-del vim_get_func
 
 
 def win_idx(window_id):
@@ -65,21 +44,6 @@ def win_idx(window_id):
             r = window, curwindow_id
     return r or (None, None)
 win_idx.window_id = count()
-
-
-def window_cached(func):
-    ' Use cached values for func() if called for non-active window '
-    cache = {}
-
-    @wraps(func)
-    def ret():
-        if current_mode == 'nc':
-            return cache.get(window_id)
-        else:
-            r = cache[window_id] = func()
-            return r
-
-    return ret
 
 
 hl_groups = {}
@@ -234,6 +198,34 @@ def safe_int(x):
 
 def setup():
     if safe_int(vim.eval('has("gui_running")')) or safe_int(vim.eval('&t_Co')) >= 256:
+        vim.command('''
+function g:Get_statusline_data(winnr)
+    let cbufnr = winbufnr(a:winnr)
+    let m = 'nc'
+    let vstart = ''
+    let vend = ''
+    if a:winnr == winnr()
+        let m = mode(1)
+        if m == 'v' || m == 'V' || m == '\026'
+            let vstart = getpos('v')
+            let vend = getpos('.')
+            let vstart[2] = virtcol([vstart[1], vstart[2], vstart[3]])
+            let vend[2] = virtcol([vend[1], vend[2], vend[3]])
+        endif
+    endif
+    let name = bufname(cbufnr)
+    let file_directory = name != '' ? fnamemodify(name, ':~:.:h') : ''
+    let file_name = name != '' ? fnamemodify(name, ':~:.:t') : ''
+    let ans = {'mode':m, 'bufname':name, 'file_directory':file_directory, 'file_name':file_name, \
+        'readonly':getbufvar(cbufnr, "&readonly"), 'modified':getbufvar(cbufnr, "&modified"), \
+        'buftype':getbufvar(cbufnr, "&buftype"), 'fileformat':getbufvar(cbufnr, '&fileformat'), \
+        'fileencoding':getbufvar(cbufnr, '&fileencoding'), 'filetype':getbufvar(cbufnr, '&filetype'), \
+        'vstart':vstart, 'vend':vend \
+    }
+    return ans
+endfunction
+''')
+
         sys.statusline = namedtuple('StatusLine', 'render reset_highlights')(statusline, reset_highlights)
         vim.command('augroup statusline')
         vim.command('	autocmd! ColorScheme * :{} sys.statusline.reset_highlights()'.format(python))
@@ -243,11 +235,16 @@ def setup():
 # }}}
 
 
-def segment(fg=None, bg=None, bold=False, soft_divider=False, hard_divider=False):
+def escape(text):
+    return text.replace(' ', '\xa0').replace('%', '%%')
+
+
+def segment(fg=None, bg=None, bold=False, soft_divider=False, hard_divider=False, escape=escape):
     def decorator(func):
         func.fg, func.bg, func.bold = fg, bg, bold
         func.soft_divider = soft_divider
         func.hard_divider = hard_divider
+        func.escape = escape
         return func
     return decorator
 
@@ -257,10 +254,6 @@ def render_segments(segments):
         val = seg()
         if val:
             yield val, seg
-
-
-def escape(text):
-    return text.replace(' ', '\xa0').replace('%', '%%')
 
 
 # Left segments {{{
@@ -313,13 +306,9 @@ def visual_range():
 
     Returns a value similar to `showcmd`.
     '''
-    if current_mode not in ('v', 'V', '^V'):
+    pos_start, pos_end = statusline.data['vstart'], statusline.data['vend']
+    if not pos_start:
         return
-    pos_start = getpos('v')
-    pos_end = getpos('.')
-    # Workaround for vim's "excellent" handling of multibyte characters and display widths
-    pos_start[2] = virtcol([pos_start[1], pos_start[2], pos_start[3]])
-    pos_end[2] = virtcol([pos_end[1], pos_end[2], pos_end[3]])
     visual_start = (int(pos_start[1]), int(pos_start[2]))
     visual_end = (int(pos_end[1]), int(pos_end[2]))
     diff_rows = abs(visual_end[0] - visual_start[0]) + 1
@@ -341,27 +330,17 @@ def branch():
 
 @segment(fg='brightestred', bg='gray3')
 def readonly_indicator():
-    return LOCK + '\xa0' if int(current_buffer.options['readonly']) else None
+    return LOCK + '\xa0' if int(statusline.data['readonly']) else None
 
 
 @segment(fg='gray8', bg=readonly_indicator.bg)
-def file_directory(shorten_user=True, shorten_cwd=True, shorten_home=False):
-    '''Return file directory (head component of the file path).
-
-    :param bool shorten_user:
-            shorten ``$HOME`` directory to :file:`~/`
-
-    :param bool shorten_cwd:
-            shorten current directory to :file:`./`
-
-    :param bool shorten_home:
-            shorten all directories in :file:`/home/` to :file:`~user/` instead of :file:`/home/user/`.
-    '''
-    name = current_buffer.name
+def file_directory():
+    '''Return file directory (head component of the file path).  '''
+    name = statusline.data['bufname']
     if not name:
         return None
-    file_directory = fnamemodify(name, (':~' if shorten_user else '') + (':.' if shorten_cwd else '') + ':h')
-    if shorten_home and file_directory.startswith('/home/'):
+    file_directory = statusline.data['file_directory']
+    if file_directory.startswith('/home/'):
         file_directory = '~' + file_directory[6:]
     return file_directory + os.sep if file_directory else None
 
@@ -369,11 +348,11 @@ def file_directory(shorten_user=True, shorten_cwd=True, shorten_home=False):
 @segment(fg='white', bg=file_directory.bg, bold=True)
 def file_name():
     '''Return file name (tail component of the file path).'''
-    name = current_buffer.name
+    name = statusline.data['bufname']
     if not name:
         return None
-    ans = fnamemodify(name, ':~:.:t')
-    is_modified = int(current_buffer.options['modified'])
+    ans = statusline.data['file_name']
+    is_modified = int(statusline.data['modified'])
     file_name.fg = 'brightyellow' if is_modified else 'white'
     return ans
 
@@ -396,9 +375,9 @@ def file_status():
 
 
 def fetch_vcs_data():
-    name = current_buffer.name
+    name = statusline.data['bufname']
     fetch_vcs_data.repo_status = fetch_vcs_data.file_status = fetch_vcs_data.branch = None
-    if name and not current_buffer.options['buftype']:
+    if name and not statusline.data['buftype']:
         s = connect()
         path = realpath(name)
         both = not os.path.isdir(path)
@@ -420,7 +399,7 @@ def left():
     for i, (val, segment) in enumerate(segments):
         if i == 0:
             val = '\xa0' + val
-        ans.append(colored(escape(val), fg=segment.fg, bg=segment.bg, bold=segment.bold))
+        ans.append(colored(segment.escape(val), fg=segment.fg, bg=segment.bg, bold=segment.bold))
         add_hard_divider = segment.hard_divider or i == len(segments) - 1 or segments[i + 1][1].bg != segment.bg
         if add_hard_divider:
             ans.append(colored('\xa0', fg=segment.fg, bg=segment.bg, bold=segment.bold))
@@ -441,7 +420,7 @@ left.segments = (
 def file_data(name):
     @segment(fg='gray8', soft_divider=True)
     def func():
-        return current_buffer.options[name].decode('utf-8', 'replace') or None
+        return statusline.data[name] or None
     func.__name__ = name
     return func
 
@@ -450,33 +429,22 @@ file_encoding = file_data('fileencoding')
 file_type = file_data('filetype')
 
 
-@segment(fg='white', bg='gray2')
+@segment(fg='white', bg='gray2', escape=lambda x: x)
 def line_percent():
     '''Return the cursor position in the file as a percentage.'''
-    line_current = window.cursor[0]
-    line_last = len(current_buffer)
-    percentage = line_current * 100.0 / line_last
-    return str(int(round(percentage))) + '%'
+    return '%p%%'
 
 
-@segment(bg='white', fg='black', bold=True)
+@segment(bg='white', fg='black', bold=True, escape=lambda x: x)
 def line_current():
     '''Return the current cursor line.'''
-    return '\xa0' + str(window.cursor[0])
+    return '\xa0%l'
 
 
-@segment()
-def col_current():
-    '''Return the current cursor column.  '''
-    return str(window.cursor[1] + 1)
-
-
-@window_cached
-@segment(bg=line_current.bg, fg='gray4')
+@segment(bg=line_current.bg, fg='gray4', escape=lambda x: x)
 def virtcol_current():
     '''Return current visual column with concealed characters ingored'''
-    col = virtcol('.')
-    return ':' + str(col)
+    return ':%v'
 
 
 def right():
@@ -494,7 +462,7 @@ def right():
                 ans.append(colored('\xa0' + RIGHT_DIVIDER + '\xa0', fg=segment.fg, bg=segment.bg))
         if i == len(segments) - 1:
             val += '\xa0'
-        ans.append(colored(escape(val), fg=segment.fg, bg=segment.bg, bold=segment.bold))
+        ans.append(colored(segment.escape(val), fg=segment.fg, bg=segment.bg, bold=segment.bold))
 
     return ''.join(ans)
 right.segments = (file_format, file_encoding, file_type, line_percent, line_current, virtcol_current)
@@ -504,13 +472,13 @@ right.segments = (file_format, file_encoding, file_type, line_percent, line_curr
 
 def statusline(wid):
     ' The function responsible for rendering the statusline '
-    global current_mode, window, window_id, current_buffer
+    global current_mode
     window, window_id = win_idx(None if wid == -1 else wid)
     try:
         if not window:
             return 'No window for window_id: {!r}'.format(window_id)
-        current_buffer = window.buffer
-        current_mode = mode(1) if window is vim.current.window else 'nc'
+        current_data = statusline.data = vim.eval('g:Get_statusline_data({})'.format(window.number))
+        current_mode = current_data['mode']
         fetch_vcs_data()
         ans = left()
         ans += '%='  # left/right separator
@@ -518,4 +486,3 @@ def statusline(wid):
         return ans
     finally:
         current_mode = 'nc'
-        window = window_id = current_buffer = None  # Prevent leaks
