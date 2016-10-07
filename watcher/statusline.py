@@ -421,7 +421,7 @@ def file_data(name):
     @segment(fg='gray8', soft_divider=True)
     def func():
         return statusline.data[name] or None
-    func.__name__ = name
+    func.__name__ = str(name)
     return func
 
 file_format = file_data('fileformat')
