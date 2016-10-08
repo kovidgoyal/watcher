@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# vim:fileencoding=utf-8
+# vim:fileencoding=utf-8:nospell
 # License: GPL v3 Copyright: 2016, Kovid Goyal <kovid at kovidgoyal.net>
 from __future__ import unicode_literals
 
@@ -8,11 +8,13 @@ import os
 appname = 'watcher'
 LEFT_DIVIDER = '⧽'
 RIGHT_DIVIDER = '⧼'
-LEFT_END = ''
-RIGHT_END = ''
-VCS_SYMBOL = ''
-CLOCK = "\U0001F552"
-LOCK = ''
+LEFT_END = ''  # Needs patched font
+RIGHT_END = ''  # Needs patched font
+VCS_SYMBOL = ''  # Needs patched font
+CLOCK = '🕒'
+READONLY = '👁'
+BATTERY = '🔋'
+CHARGING = '🔌'
 
 
 def local_socket_address():

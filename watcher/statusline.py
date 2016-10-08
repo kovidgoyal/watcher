@@ -9,7 +9,7 @@ import vim
 import codecs
 from collections import namedtuple
 
-from .constants import LEFT_END, LEFT_DIVIDER, RIGHT_END, RIGHT_DIVIDER, VCS_SYMBOL, LOCK
+from .constants import LEFT_END, LEFT_DIVIDER, RIGHT_END, RIGHT_DIVIDER, VCS_SYMBOL, READONLY
 from .client import connect, send_msg, recv_msg
 from .utils import realpath
 
@@ -327,7 +327,7 @@ def branch():
 
 @segment(fg='brightestred', bg='gray3')
 def readonly_indicator():
-    return LOCK + '\xa0' if int(statusline.data['readonly']) else None
+    return READONLY + '\xa0' if int(statusline.data['readonly']) else None
 
 
 @segment(fg='gray8', bg=readonly_indicator.bg)
