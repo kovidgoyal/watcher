@@ -37,6 +37,13 @@ def effective_rate(history, current_val):
 
 def battery_time():
     base = '/sys/class/power_supply'
+    if battery_time.has_battery is False:
+        return []
+    if battery_time.has_battery is None:
+        try:
+            battery_time.has_battery = len(os.listdir(base)) > 1
+        except EnvironmentError:
+            battery_time.has_battery = False
     ans = []
     for x in os.listdir(base):
         if x == 'AC':
@@ -54,6 +61,7 @@ def battery_time():
                 ans.append(BT(state == 'charging', 100 * data['energy_now'] / data['energy_full'], int(t), int(60 * (t - int(t)))))
     return ans
 
+battery_time.has_battery = None
 battery_time.history = defaultdict(lambda: {'charging': deque(maxlen=60), 'discharging': deque(maxlen=60)})
 
 
