@@ -184,7 +184,7 @@ function g:StatusLine_render(winid)
     return PYEVAL('sys.statusline.render('.winnr.')')
 endfunction'''.replace('PYEVAL', pyeval))
 
-    vim.command('''
+        vim.command('''
 function g:StatusLine_new_window()
     for i in range(1, winnr('$'))
         let winid = win_getid(i)
@@ -197,7 +197,7 @@ function g:StatusLine_new_window()
     return g:StatusLine_render(win_getid())
 endfunction''')
 
-    vim.command('''
+        vim.command('''
 function g:StatusLine_get_data(winnr)
     let cbufnr = winbufnr(a:winnr)
     let m = 'nc'
@@ -224,11 +224,11 @@ function g:StatusLine_get_data(winnr)
     return ans
 endfunction ''')
 
-    vim.command('augroup statusline')
-    vim.command('	autocmd! ColorScheme * :{} sys.statusline.reset_highlights()'.format(python))
-    vim.command('	autocmd! VimEnter    * :redrawstatus!')
-    vim.command('augroup END')
-    vim.command("set statusline=%!g:StatusLine_new_window()")
+        vim.command('augroup statusline')
+        vim.command('	autocmd! ColorScheme * :{} sys.statusline.reset_highlights()'.format(python))
+        vim.command('	autocmd! VimEnter    * :redrawstatus!')
+        vim.command('augroup END')
+        vim.command("set statusline=%!g:StatusLine_new_window()")
 # }}}
 
 
