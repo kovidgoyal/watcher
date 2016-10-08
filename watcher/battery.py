@@ -57,7 +57,10 @@ def battery_time():
             state = read(os.path.join(base, x, 'status'), False)
             if state in ('charging', 'discharging'):
                 power = effective_rate(battery_time.history[x][state], data['power_now'])
-                t = data['energy_now'] / power
+                try:
+                    t = data['energy_now'] / power
+                except ZeroDivisionError:
+                    t = 0
                 ans.append(BT(state == 'charging', 100 * data['energy_now'] / data['energy_full'], int(t), int(60 * (t - int(t)))))
     return ans
 
