@@ -1,59 +1,61 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
 # License: GPL v3 Copyright: 2016, Kovid Goyal <kovid at kovidgoyal.net>
-from __future__ import unicode_literals
+from __future__ import unicode_literals, print_function, division
 
-from functools import partial
-from collections import namedtuple
+import os
+from collections import defaultdict, deque
 
-from .utils import print_error
+try:
+    from .utils import print_error
+except ValueError:
+    print_error = print
 
-BT = namedtuple('BatteryTime', 'charging percentage hours minutes')
+
+def BT(charging, percentage, hours, minutes):
+    return locals()
 
 
-def do_find_battery():
+def read(path, is_unit=True):
     try:
-        import dbus
-    except ImportError:
-        print_error('Cannot get battery stats as DBUS not available')
-        return
-    bus = dbus.SystemBus()
-    try:
-        up = bus.get_object('org.freedesktop.UPower', '/org/freedesktop/UPower')
-    except dbus.exceptions.DBusException as e:
-        if getattr(e, '_dbus_error_name', None) == 'org.freedesktop.DBus.Error.ServiceUnknown':
-            print_error('Cannot get batter stats as UPower service is not available')
-            return
+        with open(path, 'rb') as f:
+            val = f.read().decode('ascii').strip()
+        if is_unit:
+            val = int(val) / 1e6
+        else:
+            val = val.lower()
+    except Exception:
         raise
-    for devpath in up.EnumerateDevices(dbus_interface='org.freedesktop.UPower'):
-        dev = bus.get_object('org.freedesktop.UPower', devpath)
-        devtype = int(dev.Get('org.freedesktop.UPower.Device', 'Type', dbus_interface='org.freedesktop.DBus.Properties'))
-        if devtype != 2:
-            continue
-        if not bool(dev.Get('org.freedesktop.UPower.Device', 'IsPresent', dbus_interface='org.freedesktop.DBus.Properties')):
-            continue
-        if not bool(dev.Get('org.freedesktop.UPower.Device', 'PowerSupply', dbus_interface='org.freedesktop.DBus.Properties')):
-            continue
-        return partial(dbus.Interface(dev, dbus_interface='org.freedesktop.DBus.Properties').Get, 'org.freedesktop.UPower.Device')
+        val = None
+    return val
 
 
-def find_battery():
-    if not hasattr(find_battery, 'ans'):
-        find_battery.ans = do_find_battery()
-    return find_battery.ans
+def effective_rate(history, current_val):
+    history.append(current_val)
+    return sum(history) / len(history)
 
 
 def battery_time():
-    dev = find_battery()
-    if dev is None:
-        return None
-    state = int(dev('State'))
-    if state not in (1, 2):
-        return None
-    tleft = int(dev('TimeToFull' if state == 1 else 'TimeToEmpty'))
-    percentage = float(dev('Percentage'))
-    if tleft == 0:
-        return None
-    minutes = tleft // 60
-    hours, minutes = minutes // 60, minutes % 60
-    return BT(state == 1, percentage, hours, minutes)
+    base = '/sys/class/power_supply'
+    ans = []
+    for x in os.listdir(base):
+        if x == 'AC':
+            continue
+        data = {}
+        for k in ('power_now', 'energy_now', 'energy_full'):
+            val = data[k] = read(os.path.join(base, x, k))
+            if val is None:
+                break
+        else:
+            state = read(os.path.join(base, x, 'status'), False)
+            if state in ('charging', 'discharging'):
+                power = effective_rate(battery_time.history[x][state], data['power_now'])
+                t = data['energy_now'] / power
+                ans.append(BT(state == 'charging', 100 * data['energy_now'] / data['energy_full'], int(t), int(60 * (t - int(t)))))
+    return ans
+
+battery_time.history = defaultdict(lambda: {'charging': deque(maxlen=60), 'discharging': deque(maxlen=60)})
+
+
+if __name__ == '__main__':
+    print(battery_time())
