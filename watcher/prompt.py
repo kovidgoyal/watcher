@@ -74,11 +74,12 @@ def user_segment(user, parts):
     a = parts.append
     a(ansi_code(fg(USER_FOREGROUND), bg(USER_BACKGROUND)))
     a('\xa0{}\xa0'.format(user))
-    a(ansi_code(fg(USER_BACKGROUND), bg(CWD_BACKGROUND)))
+    a(ansi_code(fg(USER_BACKGROUND), bg(cwd_segment.first_bg)))
     a(LEFT_END)
 
 
-def cwd_segment(cwd_parts, parts):
+def cwd_segment(cwd_parts):
+    parts = []
     a = parts.append
     a(ansi_code(fg(CWD_FOREGROUND), bg(CWD_BACKGROUND)))
     last = cwd_parts[-1]
@@ -96,6 +97,10 @@ def cwd_segment(cwd_parts, parts):
                 a(LEFT_END)
             else:
                 a(LEFT_DIVIDER)
+        if p is cwd_parts[0]:
+            cwd_segment.first_bg = CWD_LAST_BG if p is last else CWD_BACKGROUND
+    return parts
+cwd_segment.first_bg = CWD_BACKGROUND
 
 
 def left_prompt(user, cwd, is_ssh, home):
@@ -113,12 +118,16 @@ def left_prompt(user, cwd, is_ssh, home):
     limit -= 1 if show_user else 0
     if len(cwd_parts) > limit:
         cwd_parts = [HELLIPSIS] + cwd_parts[-limit+1:]
+    if cwd_parts:
+        cwd_parts = cwd_segment(cwd_parts)
+    else:
+        cwd_segment.first_bg = CWD_BACKGROUND
     if is_ssh:
-        hostname_segment(parts, USER_BACKGROUND if show_user else CWD_BACKGROUND)
+        hostname_segment(parts, USER_BACKGROUND if show_user else cwd_segment.first_bg)
     if show_user:
         user_segment(user, parts)
     if cwd_parts:
-        cwd_segment(cwd_parts, parts)
+        parts.extend(cwd_parts)
     parts.append('\xa0')
 
     return parts
