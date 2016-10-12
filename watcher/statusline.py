@@ -226,7 +226,6 @@ endfunction ''')
 
         vim.command('augroup statusline')
         vim.command('	autocmd! ColorScheme * :{} sys.statusline.reset_highlights()'.format(python))
-        vim.command('	autocmd! VimEnter    * :redrawstatus!')
         vim.command('augroup END')
         vim.command("set statusline=%!g:StatusLine_new_window()")
 # }}}
