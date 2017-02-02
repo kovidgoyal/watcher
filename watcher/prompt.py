@@ -111,7 +111,7 @@ def left_prompt(user, cwd, is_ssh, home):
     if cwd.startswith(home):
         cwd = '~' + os.sep + cwd[len(home):]
     cwd_parts = list(filter(None, cwd.split(os.sep)))
-    if cwd_parts[0] != '~':
+    if not cwd_parts or cwd_parts[0] != '~':
         cwd_parts.insert(0, '/')
     show_user = user.strip() and user != IGNORE_USER
     limit = 3 if is_ssh else 4
