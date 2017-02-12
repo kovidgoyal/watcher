@@ -383,7 +383,7 @@ def fetch_vcs_data():
         if not (subpath or '').startswith('.git/'):
             send_msg(s, {'q': 'vcs', 'path': path, 'subpath': subpath, 'both': both})
             ans = recv_msg(s)
-            if ans['ok']:
+            if ans.get('ok'):
                 fetch_vcs_data.repo_status = ans.get('repo_status')
                 fetch_vcs_data.branch = ans.get('branch')
                 fetch_vcs_data.file_status = ans.get('file_status')
