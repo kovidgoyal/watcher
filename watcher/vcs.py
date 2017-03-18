@@ -9,7 +9,7 @@ import re
 from .inotify import add_tree_watch
 from .utils import generate_directories, realpath, readlines
 
-EXCLUDE_VCS_DIRS = frozenset('qt5'.split())
+EXCLUDE_VCS_DIRS = frozenset('qt5 build-calibre build-kitty'.split())
 
 
 # git {{{
@@ -34,6 +34,8 @@ def git_branch_name(base_dir):
     if m is not None:
         return m.group(1)
     return raw[:7]
+
+
 git_branch_name.ref_pat = re.compile(r'ref:\s*refs/heads/(.+)')
 
 
@@ -99,11 +101,19 @@ def is_vcs(path):
                 return vcs, directory, ignore_event
     return None, None, None
 
+
 vcs_props = (
     ('git', '.git', os.path.exists, git_ignore_modified),
     # ('mercurial', '.hg', os.path.isdir, None),
     # ('bzr', '.bzr', os.path.isdir, None),
 )
+
+
+def escape_branch_name(name):
+    # Disallow all characters other than basic alphanumerics. This is done
+    # because branch names are displayed in sheels and so can be vulnerable to
+    # shell escape based vulnerabilities.
+    return re.sub(r'[^a-zA-Z0-9_-]', '_', name)
 
 
 class VCSWatcher:
@@ -130,7 +140,7 @@ class VCSWatcher:
         self.vcs, self.path, self.ignore_event = is_vcs(self.path)
         self.file_status = {}  # All saved file statuses are outdated
         if self.vcs == 'git':
-            self.branch_name = git_branch_name(self.path)
+            self.branch_name = escape_branch_name(git_branch_name(self.path))
             self.repo_status, self.file_status[subpath] = git_status(self.path, subpath, both)
         else:
             self.branch_name = self.repo_status = None
