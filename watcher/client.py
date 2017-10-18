@@ -19,10 +19,20 @@ def send_msg(s, msg):
     s.shutdown(socket.SHUT_WR)
 
 
+def eintr_retry_call(func, *args):
+    while True:
+        try:
+            return func(*args)
+        except EnvironmentError as err:
+            if err.errno == errno.EINTR:
+                continue
+            raise
+
+
 def recv_msg(s, ds=deserialize_message):
     buf = b''
     while True:
-        d = s.recv(4096)
+        d = eintr_retry_call(s.recv, 4096)
         if d:
             buf += d
         else:
@@ -47,7 +57,7 @@ def entry(f):
 def connect():
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
-        s.connect(local_socket_address())
+        eintr_retry_call(s.connect, local_socket_address())
     except EnvironmentError as err:
         if err.errno == errno.ENOENT:
             return None
