@@ -12,7 +12,7 @@ LEFT_END = ''  # Needs patched font
 RIGHT_END = ''  # Needs patched font
 VCS_SYMBOL = ''  # Needs patched font
 CLOCK = '🕒'
-READONLY = '👁'
+READONLY = '🔒'
 BATTERY = '🔋'
 CHARGING = '🔌'
 
