@@ -9,7 +9,7 @@ import re
 from .inotify import add_tree_watch
 from .utils import generate_directories, realpath, readlines
 
-EXCLUDE_VCS_DIRS = frozenset('qt5 build-calibre build-kitty'.split())
+EXCLUDE_VCS_DIRS = frozenset('qt5 build-calibre build-kitty b'.split())
 
 
 # git {{{
