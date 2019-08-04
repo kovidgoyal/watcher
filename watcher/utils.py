@@ -91,7 +91,7 @@ def serialize_message(msg):
     return ans
 
 
-def readlines(cmd, cwd=os.getcwd(), decode=True):
+def readlines(cmd, cwd=None, decode=True):
     p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
     p.stderr.close()
     with p.stdout:
@@ -100,6 +100,7 @@ def readlines(cmd, cwd=os.getcwd(), decode=True):
                 yield line[:-1].decode('utf-8')
             else:
                 yield line[:-1]
+
 
 unit_list = tuple(zip(['', 'k', 'M', 'G', 'T', 'P'], [0, 0, 1, 2, 2, 2]))
 
