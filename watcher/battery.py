@@ -8,7 +8,7 @@ from collections import defaultdict, deque
 
 try:
     from .utils import print_error
-except ValueError:
+except Exception:
     print_error = print
 
 
@@ -25,7 +25,6 @@ def read(path, is_unit=True):
         else:
             val = val.lower()
     except Exception:
-        raise
         val = None
     return val
 
@@ -63,6 +62,7 @@ def battery_time():
                     t = 0
                 ans.append(BT(state == 'charging', 100 * data['energy_now'] / data['energy_full'], int(t), int(60 * (t - int(t)))))
     return ans
+
 
 battery_time.has_battery = None
 battery_time.history = defaultdict(lambda: {'charging': deque(maxlen=60), 'discharging': deque(maxlen=60)})
