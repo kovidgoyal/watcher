@@ -18,6 +18,7 @@ def debug(*a, **k):
     k['file'] = codecs.open('/tmp/log', 'ab', 'utf-8', 'replace')
     return print(*a, **k)
 
+
 # vim bindings {{{
 pyeval, python = ('py3eval', 'python3') if sys.version_info.major >= 3 else ('pyeval', 'python')
 
@@ -255,18 +256,18 @@ def render_segments(segments):
 # Left segments {{{
 
 vim_modes = {
-    'n': 'NORMAL',
+    'n': 'N',
     'no': 'N·OPER',
-    'v': 'VISUAL',
+    'v': 'V',
     'V': 'V·LINE',
     '^V': 'V·BLCK',
-    's': 'SELECT',
+    's': 'S',
     'S': 'S·LINE',
     '^S': 'S·BLCK',
-    'i': 'INSERT',
-    'R': 'REPLACE',
+    'i': 'I',
+    'R': 'R',
     'Rv': 'V·RPLCE',
-    'c': 'COMMND',
+    'c': 'C',
     'cv': 'VIM EX',
     'ce': 'EX',
     'r': 'PROMPT',
@@ -405,6 +406,7 @@ def left():
                 ans.append(colored('\xa0' + LEFT_DIVIDER + '\xa0', fg=segment.fg, bg=segment.bg))
     return ''.join(ans)
 
+
 left.segments = (
     mode_segment, visual_range, branch,
     readonly_indicator, file_directory, file_name, file_status)
@@ -419,6 +421,7 @@ def file_data(name):
         return statusline.data[name] or None
     func.__name__ = str(name)
     return func
+
 
 file_format = file_data('fileformat')
 file_encoding = file_data('fileencoding')
@@ -461,6 +464,8 @@ def right():
         ans.append(colored(segment.escape(val), fg=segment.fg, bg=segment.bg, bold=segment.bold))
 
     return ''.join(ans)
+
+
 right.segments = (file_format, file_encoding, file_type, line_percent, line_current, virtcol_current)
 
 # }}}
