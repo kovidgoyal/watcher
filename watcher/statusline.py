@@ -204,6 +204,8 @@ function g:StatusLine_get_data(winnr)
     let m = 'nc'
     let vstart = ''
     let vend = ''
+    let warnings = 0
+    let errors = 0
     if a:winnr == winnr()
         let m = mode(1)
         if m == 'v' || m == 'V' || m == '\026'
@@ -216,11 +218,20 @@ function g:StatusLine_get_data(winnr)
     let name = bufname(cbufnr)
     let file_directory = name != '' ? fnamemodify(name, ':~:.:h') : ''
     let file_name = name != '' ? fnamemodify(name, ':~:.:t') : ''
+    try
+        if g:SyntasticLoclist.current().hasErrorsOrWarningsToDisplay() > 0
+                let ll = g:SyntasticLoclist.current()
+                let warnings = len(ll.warnings())
+                let errors = len(ll.errors())
+        endif
+    catch /.*/
+        echo "Caught error: " . v:exception
+    endtry
     let ans = {'mode':m, 'bufname':name, 'file_directory':file_directory, 'file_name':file_name, \
         'readonly':getbufvar(cbufnr, "&readonly"), 'modified':getbufvar(cbufnr, "&modified"), \
         'buftype':getbufvar(cbufnr, "&buftype"), 'fileformat':getbufvar(cbufnr, '&fileformat'), \
         'fileencoding':getbufvar(cbufnr, '&fileencoding'), 'filetype':getbufvar(cbufnr, '&filetype'), \
-        'vstart':vstart, 'vend':vend \
+        'vstart':vstart, 'vend':vend, 'warnings': warnings, 'errors': errors \
     }
     return ans
 endfunction ''')
@@ -318,6 +329,22 @@ def visual_range():
         return '{0} cols'.format(diff_cols)
 
 
+@segment(bold=True, hard_divider=True)
+def errors_segment():
+    warnings = int(statusline.data['warnings'])
+    errors = int(statusline.data['errors'])
+    if warnings or errors:
+        ans = ''
+        if warnings:
+            ans += ' W{} '.format(warnings)
+            errors_segment.bg = 'darkorange'
+        if errors:
+            ans += ' E{} '.format(errors)
+            errors_segment.bg = 'darkred'
+        errors_segment.fg = 'white'
+        return ans.replace('  ', ' ').strip()
+
+
 @segment(hard_divider=True, bg='gray2')
 def branch():
     if fetch_vcs_data.branch:
@@ -408,7 +435,7 @@ def left():
 
 
 left.segments = (
-    mode_segment, visual_range, branch,
+    mode_segment, visual_range, errors_segment, branch,
     readonly_indicator, file_directory, file_name, file_status)
 # }}}
 
