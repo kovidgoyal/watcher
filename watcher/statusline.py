@@ -218,13 +218,19 @@ function g:StatusLine_get_data(winnr)
     let name = bufname(cbufnr)
     let file_directory = name != '' ? fnamemodify(name, ':~:.:h') : ''
     let file_name = name != '' ? fnamemodify(name, ':~:.:t') : ''
-    if g:SyntasticLoclist.current().hasErrorsOrWarningsToDisplay() > 0
-            let ll = g:SyntasticLoclist.current()
-            let warnings += len(ll.warnings())
-            let errors += len(ll.errors())
-    endif
-    let errors += youcompleteme#GetErrorCount()
-    let warnings += youcompleteme#GetWarningCount()
+    try
+        if g:SyntasticLoclist.current().hasErrorsOrWarningsToDisplay() > 0
+                let ll = g:SyntasticLoclist.current()
+                let warnings += len(ll.warnings())
+                let errors += len(ll.errors())
+        endif
+    catch /.*/
+    endtry
+    try
+        let errors += youcompleteme#GetErrorCount()
+        let warnings += youcompleteme#GetWarningCount()
+    catch /.*/
+    endtry
     let ans = {'mode':m, 'bufname':name, 'file_directory':file_directory, 'file_name':file_name, \
         'readonly':getbufvar(cbufnr, "&readonly"), 'modified':getbufvar(cbufnr, "&modified"), \
         'buftype':getbufvar(cbufnr, "&buftype"), 'fileformat':getbufvar(cbufnr, '&fileformat'), \
