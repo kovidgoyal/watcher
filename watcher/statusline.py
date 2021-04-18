@@ -219,10 +219,10 @@ function g:StatusLine_get_data(winnr)
     let file_directory = name != '' ? fnamemodify(name, ':~:.:h') : ''
     let file_name = name != '' ? fnamemodify(name, ':~:.:t') : ''
     try
-        if g:SyntasticLoclist.current().hasErrorsOrWarningsToDisplay() > 0
-                let ll = g:SyntasticLoclist.current()
-                let warnings += len(ll.warnings())
-                let errors += len(ll.errors())
+        let l:counts = ale#statusline#Count(bufnr(''))
+        if l:counts.total > 0
+            let errors += l:counts.error + l:counts.style_error
+            let warnings += l:counts.total - l:all_errors
         endif
     catch /.*/
     endtry
