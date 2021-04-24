@@ -178,7 +178,7 @@ def safe_int(x):
 
 def setup():
     if safe_int(vim.eval('has("gui_running")')) or safe_int(vim.eval('&t_Co')) >= 256:
-        sys.statusline = namedtuple('StatusLine', 'render reset_highlights debug')(statusline, reset_highlights, debug)
+        sys.statusline = namedtuple('StatusLine', 'render reset_highlights debug refresh')(statusline, reset_highlights, debug, refresh)
         vim.command('''
 function g:StatusLine_render(winid)
     let winnr = win_id2win(a:winid)
@@ -241,7 +241,8 @@ function g:StatusLine_get_data(winnr)
 endfunction ''')
 
         vim.command('augroup statusline')
-        vim.command('	autocmd! ColorScheme * :{} sys.statusline.reset_highlights()'.format(python))
+        vim.command(f'	autocmd! ColorScheme * :{python} sys.statusline.reset_highlights()')
+        vim.command(f'	autocmd! FocusGained * :{python} sys.statusline.refresh()')
         vim.command('augroup END')
         vim.command("set statusline=%!g:StatusLine_new_window()")
 # }}}
@@ -506,7 +507,7 @@ def statusline(winnr):
     ' The function responsible for rendering the statusline '
     global current_mode
     try:
-        statusline.data = vim.eval('g:StatusLine_get_data({})'.format(winnr))
+        statusline.data = vim.eval(f'g:StatusLine_get_data({winnr})')
         current_mode = statusline.data['mode']
         fetch_vcs_data()
         ans = left()
@@ -515,3 +516,7 @@ def statusline(winnr):
         return ans
     finally:
         current_mode = 'nc'
+
+
+def refresh():
+    vim.command('redrawstatus!')
