@@ -222,7 +222,7 @@ function g:StatusLine_get_data(winnr)
         let l:counts = ale#statusline#Count(bufnr(''))
         if l:counts.total > 0
             let errors += l:counts.error + l:counts.style_error
-            let warnings += l:counts.total - l:all_errors
+            let warnings += l:counts.warning + l:counts.style_warning
         endif
     catch /.*/
     endtry
