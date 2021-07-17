@@ -4,7 +4,8 @@
 
 import os
 
-from .constants import ansi_code, bg, fg, hostname, LEFT_DIVIDER, LEFT_END, RIGHT_END, VCS_SYMBOL
+from .constants import (LEFT_DIVIDER, LEFT_END, RIGHT_END, VCS_SYMBOL,
+                        ansi_code, bg, fg, hostname)
 from .vcs import vcs_data
 
 CWD_BACKGROUND = 'gray4'
@@ -100,18 +101,16 @@ def cwd_segment(cwd_parts):
         if p is cwd_parts[0]:
             cwd_segment.first_bg = CWD_LAST_BG if p is last else CWD_BACKGROUND
     return parts
+
+
 cwd_segment.first_bg = CWD_BACKGROUND
 
 
 def left_prompt(user, cwd, is_ssh, home):
     parts = []
-    if cwd == home:
-        cwd = '~'
     home = home.rstrip(os.sep) + os.sep
-    if cwd.startswith(home):
-        cwd = '~' + os.sep + cwd[len(home):]
     cwd_parts = list(filter(None, cwd.split(os.sep)))
-    if not cwd_parts or cwd_parts[0] != '~':
+    if not cwd_parts or not cwd_parts[0].startswith('~'):
         cwd_parts.insert(0, '/')
     show_user = user.strip() and user != IGNORE_USER
     limit = 3 if is_ssh else 4
