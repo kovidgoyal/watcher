@@ -11,11 +11,9 @@ import time
 import select
 import errno
 import traceback
-from time import monotonic
 
 from .constants import local_socket_address
 from .utils import deserialize_message, serialize_message, String, readlines, print_error
-from .inotify import tree_watchers, prune_watchers, add_tree_watch
 from .vcs import vcs_data
 from .prompt import prompt_data
 
@@ -36,9 +34,6 @@ def handle_msg(msg):
             ans = vcs_data(msg['path'], subpath=msg.get('subpath'), both=msg.get('both', False))
             ans['ok'] = True
             return ans
-        if q == 'watch':
-            w = add_tree_watch(msg['path'])
-            return {'ok': True, 'modified': w.was_modified_since_last_call()}
     except Exception as err:
         print_error(traceback.format_exc())
         return {'ok': False, 'msg': str(err), 'tb': traceback.format_exc()}
@@ -48,7 +43,7 @@ def handle_msg(msg):
 
 def tick(serversocket):
     try:
-        readable, writable, _ = select.select([serversocket] + list(read_needed) + list(tree_watchers), list(write_needed), [])
+        readable, writable, _ = select.select([serversocket] + list(read_needed), list(write_needed), [])
     except ValueError:
         print_error('Listening socket was unexpectedly terminated')
         raise SystemExit(1)
@@ -61,15 +56,6 @@ def tick(serversocket):
             else:
                 read_needed.add(c)
                 clients[c] = {'rbuf': b''}
-        elif s in tree_watchers:
-            try:
-                s.read()
-            except Exception:
-                print_error(traceback.format_exc())
-                s.close()
-                del tree_watchers[s]
-            else:
-                tree_watchers[s] = monotonic()
         else:
             c = s
             data = clients.get(c)
@@ -119,7 +105,6 @@ def run_loop(serversocket):
     while True:
         try:
             tick(serversocket)
-            prune_watchers()
         except KeyboardInterrupt:
             raise SystemExit(0)
 
