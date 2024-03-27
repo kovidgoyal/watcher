@@ -38,7 +38,7 @@ def highlight(fg=None, bg=None, bold=False):
     if not bold and not bg and not fg:
         return ''
 
-    if not (fg, bg, bold) in hl_groups:
+    if (fg, bg, bold) not in hl_groups:
         hl_group = {
             'ctermfg': 'NONE',
             'guifg': 'NONE',
@@ -177,15 +177,14 @@ def safe_int(x):
 
 
 def setup():
-    if safe_int(vim.eval('has("gui_running")')) or safe_int(vim.eval('&t_Co')) >= 256:
-        sys.statusline = namedtuple('StatusLine', 'render reset_highlights debug refresh')(statusline, reset_highlights, debug, refresh)
-        vim.command('''
+    sys.statusline = namedtuple('StatusLine', 'render reset_highlights debug refresh')(statusline, reset_highlights, debug, refresh)
+    vim.command('''
 function g:StatusLine_render(winid)
     let winnr = win_id2win(a:winid)
     return PYEVAL('sys.statusline.render('.winnr.')')
 endfunction'''.replace('PYEVAL', pyeval))
 
-        vim.command('''
+    vim.command('''
 function g:StatusLine_new_window()
     for i in range(1, winnr('$'))
         let winid = win_getid(i)
@@ -198,7 +197,7 @@ function g:StatusLine_new_window()
     return g:StatusLine_render(win_getid())
 endfunction''')
 
-        vim.command('''
+    vim.command('''
 function g:StatusLine_get_data(winnr)
     let cbufnr = winbufnr(a:winnr)
     let m = 'nc'
@@ -218,19 +217,24 @@ function g:StatusLine_get_data(winnr)
     let name = bufname(cbufnr)
     let file_directory = name != '' ? fnamemodify(name, ':~:.:h') : ''
     let file_name = name != '' ? fnamemodify(name, ':~:.:t') : ''
-    try
-        let l:counts = ale#statusline#Count(bufnr(''))
-        if l:counts.total > 0
-            let errors += l:counts.error + l:counts.style_error
-            let warnings += l:counts.warning + l:counts.style_warning
-        endif
-    catch /.*/
-    endtry
-    try
-        let errors += youcompleteme#GetErrorCount()
-        let warnings += youcompleteme#GetWarningCount()
-    catch /.*/
-    endtry
+    if has('nvim')
+        let errors += luaeval('#vim.diagnostic.get(0, {severity = vim.diagnostic.severity.ERROR})')
+        let warnings += luaeval('#vim.diagnostic.get(0, {severity = vim.diagnostic.severity.WARN})')
+    else
+        try
+            let l:counts = ale#statusline#Count(bufnr(''))
+            if l:counts.total > 0
+                let errors += l:counts.error + l:counts.style_error
+                let warnings += l:counts.warning + l:counts.style_warning
+            endif
+        catch /.*/
+        endtry
+        try
+            let errors += youcompleteme#GetErrorCount()
+            let warnings += youcompleteme#GetWarningCount()
+        catch /.*/
+        endtry
+    endif
     let ans = {'mode':m, 'bufname':name, 'file_directory':file_directory, 'file_name':file_name, \
         'readonly':getbufvar(cbufnr, "&readonly"), 'modified':getbufvar(cbufnr, "&modified"), \
         'buftype':getbufvar(cbufnr, "&buftype"), 'fileformat':getbufvar(cbufnr, '&fileformat'), \
@@ -240,11 +244,11 @@ function g:StatusLine_get_data(winnr)
     return ans
 endfunction ''')
 
-        vim.command('augroup statusline')
-        vim.command(f'	autocmd! ColorScheme * :{python} sys.statusline.reset_highlights()')
-        vim.command(f'	autocmd! FocusGained * :{python} sys.statusline.refresh()')
-        vim.command('augroup END')
-        vim.command("set statusline=%!g:StatusLine_new_window()")
+    vim.command('augroup statusline')
+    vim.command(f'	autocmd! ColorScheme * :{python} sys.statusline.reset_highlights()')
+    vim.command(f'	autocmd! FocusGained * :{python} sys.statusline.refresh()')
+    vim.command('augroup END')
+    vim.command("set statusline=%!g:StatusLine_new_window()")
 # }}}
 
 
